@@ -1,0 +1,12 @@
+global using System.Globalization;
+global using System.Security.Claims;
+global using System.Text;
+global using Microsoft.AspNetCore.Authorization;
+global using Microsoft.AspNetCore.Mvc;
+global using Microsoft.EntityFrameworkCore;
+global using Microsoft.Extensions.Options;
+global using RoadMate.Common;
+global using RoadMate.Dtos;
+global using RoadMate.Entities;
+global using RoadMate.Repositories;
+global using RoadMate.Services;
