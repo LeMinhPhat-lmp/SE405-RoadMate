@@ -1,6 +1,6 @@
 namespace RoadMate.Common;
 
-public enum ErrorType { Failure, Validation, Unauthorized, Forbidden, NotFound, Conflict, TooManyRequests, External }
+public enum ErrorType { Failure, Validation, Unauthorized, Forbidden, NotFound, Conflict, TooManyRequests, External, NotConfigured }
 
 public sealed record Error(string Code, string Message, ErrorType Type = ErrorType.Failure)
 {
@@ -11,6 +11,7 @@ public sealed record Error(string Code, string Message, ErrorType Type = ErrorTy
   public static Error Conflict(string code, string msg) => new(code, msg, ErrorType.Conflict);
   public static Error Forbidden(string code, string msg) => new(code, msg, ErrorType.Forbidden);
   public static Error External(string code, string msg) => new(code, msg, ErrorType.External);
+  public static Error NotConfigured(string code, string msg) => new(code, msg, ErrorType.NotConfigured);   // thiếu cấu hình -> HTTP 503
 }
 
 /// <summary>Result pattern: hợp đồng giữa Controller và Service (không ném exception cho lỗi nghiệp vụ).</summary>

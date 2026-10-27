@@ -2,7 +2,7 @@ namespace RoadMate.Dtos;
 
 public static class Mappers
 {
-  public static UserDto ToDto(this User u) => new(u.Uid, u.Name, u.Email, u.Phone, u.AvatarUrl, u.BloodType, u.MedicalNotes,
+  public static UserDto ToDto(this User u) => new(u.Id, u.Name, u.Email, u.Phone, u.AvatarUrl, u.BloodType, u.MedicalNotes,
     u.VehicleType, u.PlateNumber, u.IdleMinutes, u.CrashSensitivity, u.Language, u.Theme);
 
   public static ContactDto ToDto(this EmergencyContact c) => new(c.Id, c.Name, c.Phone, c.Relation, c.Priority, c.LinkedUserId != null);

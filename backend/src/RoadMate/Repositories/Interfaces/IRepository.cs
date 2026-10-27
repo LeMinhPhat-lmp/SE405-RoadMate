@@ -1,5 +1,3 @@
-using RoadMate.Entities.Abstractions;
-
 namespace RoadMate.Repositories.Interfaces;
 
 public interface IRepository<T> where T : BaseEntity
@@ -9,6 +7,7 @@ public interface IRepository<T> where T : BaseEntity
   Task AddAsync(T entity, CancellationToken ct = default);
   Task AddRangeAsync(IEnumerable<T> entities, CancellationToken ct = default);
   void Update(T entity);
+  /// <summary>Xoá CỨNG. Với entity có ISoftDeletableEntity hãy dùng ISoftDeleteRepository.Delete.</summary>
   void Remove(T entity);
   void RemoveRange(IEnumerable<T> entities);
 }

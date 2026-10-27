@@ -7,7 +7,7 @@ public record LocationDto(string Name, double Lat, double Lng);
 public record SyncRequest(string? FcmToken, string? Name);
 public record UpdateProfileRequest(string? Name, string? AvatarUrl, string? BloodType, string? MedicalNotes, string? VehicleType,
   string? PlateNumber, int? IdleMinutes, string? CrashSensitivity, string? Language, string? Theme, string? FcmToken);
-public record UserDto(string Uid, string Name, string? Email, string? Phone, string? AvatarUrl, string? BloodType, string? MedicalNotes,
+public record UserDto(Guid Id, string Name, string? Email, string? Phone, string? AvatarUrl, string? BloodType, string? MedicalNotes,
   string? VehicleType, string? PlateNumber, int IdleMinutes, string CrashSensitivity, string Language, string Theme);
 
 // ---- Contacts
@@ -34,7 +34,7 @@ public record TripDto(Guid Id, string Title, string Status, LocationDto Origin, 
   DateTime? ExpectedReturnTime, int? IdleMinutes, string? CrashSensitivity, bool LiveShare, string? TrackingUrl, DateTime? RestUntil,
   List<Guid> AlertContactIds);
 public record TripListItemDto(Guid Id, string Title, string Status, string OriginName, string DestName, double DistanceKm,
-  DateTime? StartTime, DateTime? EndTime, DateTime CreatedAt);
+  DateTime? StartTime, DateTime? EndTime, DateTimeOffset CreatedAt);
 public record StartTripRequest(DateTime? ExpectedReturnTime, List<Guid>? AlertContactIds, bool? LiveShare);
 public record StartTripResponse(TripDto Trip, string? TrackingUrl, List<string> Warnings);
 public record TripStatsDto(double DistanceKm, int MovingMin, int RestMin, int StopCount, double MaxSpeed, double AvgSpeed, double MaxAltitude, int AlertCount);
@@ -55,11 +55,11 @@ public record JournalDto(Guid TripId, string Title, string Status, TripStatsDto?
 public record CreateAlertRequest(string ClientId, string Type, double Lat, double Lng, int? Battery);
 public record AlertLocationRequest(double Lat, double Lng, int? Battery);
 public record AlertDto(Guid Id, Guid TripId, string Type, string Status, double Lat, double Lng, int? Battery, int RepeatCount,
-    DateTime CreatedAt, DateTime? ResolvedAt, string? ResolvedBy, List<DeliveryDto>? Deliveries);
+    DateTimeOffset CreatedAt, DateTime? ResolvedAt, string? ResolvedBy, List<DeliveryDto>? Deliveries);
 public record SimulateAlertRequest(Guid TripId, string? Type, double? Lat, double? Lng);
 
 // ---- Public tracking
 public record PublicLiveDto(double Lat, double Lng, double? Speed, int? Battery, bool NetworkOk, DateTime UpdatedAt);
-public record PublicAlertDto(string Type, string Status, double Lat, double Lng, DateTime CreatedAt);
+public record PublicAlertDto(string Type, string Status, double Lat, double Lng, DateTimeOffset CreatedAt);
 public record PublicTrackDto(string OwnerName, string Title, string Status, LocationDto Destination, PublicLiveDto? Live, List<PublicAlertDto> OpenAlerts);
 public record PublicRouteDto(string? PlannedPolyline, List<LatLng> Points);

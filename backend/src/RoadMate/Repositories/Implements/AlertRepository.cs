@@ -7,8 +7,8 @@ public class AlertRepository(AppDbContext context) : Repository<Alert>(context),
 {
   public Task<Alert?> GetByClientIdAsync(string clientId, CancellationToken ct = default) =>
       Set.Include(a => a.Deliveries).FirstOrDefaultAsync(a => a.ClientId == clientId, ct);
-  public Task<Alert?> GetOwnedAsync(Guid id, string uid, CancellationToken ct = default) =>
-      Set.Include(a => a.Trip).Include(a => a.User).FirstOrDefaultAsync(a => a.Id == id && a.UserId == uid, ct);
+  public Task<Alert?> GetOwnedAsync(Guid id, Guid userId, CancellationToken ct = default) =>
+      Set.Include(a => a.Trip).Include(a => a.User).FirstOrDefaultAsync(a => a.Id == id && a.UserId == userId, ct);
   public Task<List<Alert>> ListByTripAsync(Guid tripId, CancellationToken ct = default) =>
       Set.AsNoTracking().Include(a => a.Deliveries).Where(a => a.TripId == tripId).OrderByDescending(a => a.CreatedAt).ToListAsync(ct);
   public Task<List<Alert>> ListOpenByTripAsync(Guid tripId, CancellationToken ct = default) =>

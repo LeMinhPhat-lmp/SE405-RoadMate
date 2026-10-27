@@ -1,5 +1,3 @@
-using RoadMate.Entities.Abstractions;
-
 namespace RoadMate.Entities;
 
 public static class AlertType
@@ -15,11 +13,12 @@ public static class AlertStatus
 public static class DeliveryChannel { public const string Sms = "sms", Push = "push", Email = "email"; }
 public static class DeliveryStatus { public const string Queued = "queued", Sent = "sent", Failed = "failed"; }
 
-public class Alert : BaseEntity
+/// <summary>Có audit nhưng KHÔNG soft delete: cảnh báo là bằng chứng, không được ẩn/xoá.</summary>
+public class Alert : AuditableEntity
 {
   public Guid TripId { get; set; }
-  public string UserId { get; set; } = default!;
-  public string ClientId { get; set; } = default!;      // idempotency
+  public Guid UserId { get; set; }
+  public string ClientId { get; set; } = default!;         // idempotency
   public string Type { get; set; } = AlertType.Crash;
   public string Status { get; set; } = AlertStatus.Pending;
   public double Lat { get; set; }
@@ -27,9 +26,8 @@ public class Alert : BaseEntity
   public int? Battery { get; set; }
   public int RepeatCount { get; set; }
   public DateTime? NextRepeatAt { get; set; }
-  public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
   public DateTime? ResolvedAt { get; set; }
-  public string? ResolvedBy { get; set; }               // user|contact|system
+  public string? ResolvedBy { get; set; }                  // user|contact|system
 
   public Trip? Trip { get; set; }
   public User? User { get; set; }

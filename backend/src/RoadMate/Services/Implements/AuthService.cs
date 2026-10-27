@@ -1,31 +1,22 @@
-namespace RoadMate.Services;
+namespace RoadMate.Services.Implements;
 
-public interface IAuthService
-{
-  Task<Result<UserDto>> SyncAsync(string uid, string? email, string? name, string? phone, SyncRequest req, CancellationToken ct);
-  Task<Result<UserDto>> GetMeAsync(string uid, CancellationToken ct);
-  Task<Result<UserDto>> UpdateMeAsync(string uid, UpdateProfileRequest req, CancellationToken ct);
-}
-
-public class AuthService : IAuthService
+public class AuthService(IUnitOfWork uow) : IAuthService
 {
   private static readonly string[] Sens = { "low", "medium", "high" };
-  private readonly IUnitOfWork _uow;
-  public AuthService(IUnitOfWork uow) => _uow = uow;
 
-  public async Task<Result<UserDto>> SyncAsync(string uid, string? email, string? name, string? phone, SyncRequest req, CancellationToken ct)
+  public async Task<Result<UserDto>> SyncAsync(string firebaseUid, string? email, string? name, string? phone, SyncRequest req, CancellationToken ct)
   {
-    var user = await _uow.Users.GetByUidAsync(uid, ct);
+    var user = await uow.UserRepository.GetByFirebaseUidAsync(firebaseUid, ct);
     if (user is null)
     {
       user = new User
       {
-        Uid = uid,
+        Id = Guid.NewGuid(),
+        FirebaseUid = firebaseUid,
         Email = string.IsNullOrWhiteSpace(email) ? null : email,
-        Name = req.Name ?? name ?? email?.Split('@')[0] ?? "Người dùng",
-        CreatedAt = DateTime.UtcNow
+        Name = req.Name ?? name ?? email?.Split('@')[0] ?? "Người dùng"
       };
-      await _uow.Users.AddAsync(user, ct);
+      await uow.UserRepository.AddAsync(user, ct);
     }
     if (!string.IsNullOrWhiteSpace(req.FcmToken)) user.FcmToken = req.FcmToken;
 
@@ -33,22 +24,22 @@ public class AuthService : IAuthService
     if (!string.IsNullOrWhiteSpace(phone))
     {
       user.Phone = phone;
-      foreach (var c in await _uow.EmergencyContacts.ListByPhoneAsync(phone, ct))
-        if (c.UserId != uid) c.LinkedUserId = uid;
+      foreach (var c in await uow.EmergencyContactRepository.ListByPhoneAsync(phone, ct))
+        if (c.UserId != user.Id) c.LinkedUserId = user.Id;
     }
-    await _uow.SaveChangesAsync(ct);
+    await uow.SaveChangesAsync(ct);
     return user.ToDto();
   }
 
-  public async Task<Result<UserDto>> GetMeAsync(string uid, CancellationToken ct)
+  public async Task<Result<UserDto>> GetMeAsync(Guid userId, CancellationToken ct)
   {
-    var u = await _uow.Users.GetByUidAsync(uid, ct);
+    var u = await uow.UserRepository.GetByIdAsync(userId, false, ct);
     return u is null ? Errors.UserNotSynced : u.ToDto();
   }
 
-  public async Task<Result<UserDto>> UpdateMeAsync(string uid, UpdateProfileRequest r, CancellationToken ct)
+  public async Task<Result<UserDto>> UpdateMeAsync(Guid userId, UpdateProfileRequest r, CancellationToken ct)
   {
-    var u = await _uow.Users.GetByUidAsync(uid, ct);
+    var u = await uow.UserRepository.GetByIdAsync(userId, true, ct);
     if (u is null) return Errors.UserNotSynced;
     if (r.CrashSensitivity is not null && !Sens.Contains(r.CrashSensitivity))
       return Error.Validation("INVALID_SENSITIVITY", "crashSensitivity phải là low|medium|high.");
@@ -64,7 +55,7 @@ public class AuthService : IAuthService
     u.Language = r.Language ?? u.Language;
     u.Theme = r.Theme ?? u.Theme;
     if (!string.IsNullOrWhiteSpace(r.FcmToken)) u.FcmToken = r.FcmToken;
-    await _uow.SaveChangesAsync(ct);
+    await uow.SaveChangesAsync(ct);
     return u.ToDto();
   }
 }

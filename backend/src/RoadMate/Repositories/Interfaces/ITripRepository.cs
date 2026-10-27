@@ -1,10 +1,10 @@
 namespace RoadMate.Repositories.Interfaces;
 
-public interface ITripRepository : IRepository<Trip>
+public interface ITripRepository : IRepository<Trip>, ISoftDeleteRepository<Trip>
 {
-  Task<Trip?> GetOwnedAsync(Guid id, string uid, CancellationToken ct = default);
-  Task<Trip?> GetOwnedWithDetailsAsync(Guid id, string uid, CancellationToken ct = default);
-  Task<List<Trip>> ListByOwnerAsync(string uid, string? status, CancellationToken ct = default);
-  Task<bool> HasActiveAsync(string uid, CancellationToken ct = default);
+  Task<Trip?> GetOwnedAsync(Guid id, Guid userId, CancellationToken ct = default);
+  Task<Trip?> GetOwnedWithDetailsAsync(Guid id, Guid userId, CancellationToken ct = default);
+  Task<List<Trip>> ListByOwnerAsync(Guid userId, string? status, CancellationToken ct = default);
+  Task<bool> HasActiveAsync(Guid userId, CancellationToken ct = default);
   Task<Trip?> GetByTrackingTokenAsync(string token, CancellationToken ct = default);
 }

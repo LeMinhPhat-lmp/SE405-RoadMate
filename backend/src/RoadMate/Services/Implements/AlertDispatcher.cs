@@ -1,21 +1,9 @@
-using RoadMate.Infrastructure;
-
-namespace RoadMate.Services;
+namespace RoadMate.Services.Implements;
 
 /// <summary>Soạn nội dung và gửi SMS + push cho liên hệ khẩn cấp, ghi log vào AlertDelivery (chưa SaveChanges).</summary>
-public interface IAlertDispatcher
-{
-  Task<List<AlertDelivery>> DispatchAsync(Alert alert, User user, IReadOnlyList<EmergencyContact> contacts, bool isRepeat, CancellationToken ct);
-  Task<List<AlertDelivery>> NotifySafeAsync(Alert alert, User user, IReadOnlyList<EmergencyContact> contacts, CancellationToken ct);
-  Task<List<AlertDelivery>> SendTestAsync(User user, EmergencyContact contact, CancellationToken ct);
-}
 
-public class AlertDispatcher : IAlertDispatcher
+public class AlertDispatcher(ISmsSender sms, IPushSender push, IUnitOfWork uow, IOptions<SmsOptions> options) : IAlertDispatcher
 {
-  private readonly ISmsSender _sms; private readonly IPushSender _push; private readonly IUnitOfWork _uow; private readonly SmsOptions _opt;
-  public AlertDispatcher(ISmsSender sms, IPushSender push, IUnitOfWork uow, IOptions<SmsOptions> opt)
-  { _sms = sms; _push = push; _uow = uow; _opt = opt.Value; }
-
   public Task<List<AlertDelivery>> DispatchAsync(Alert alert, User user, IReadOnlyList<EmergencyContact> contacts, bool isRepeat, CancellationToken ct)
     => SendAllAsync(alert.Id, contacts, BuildAlertText(alert, user, isRepeat),
       isRepeat ? "RoadMate: CẬP NHẬT cảnh báo" : "RoadMate: CẢNH BÁO KHẨN CẤP",
@@ -35,19 +23,19 @@ public class AlertDispatcher : IAlertDispatcher
   private async Task<List<AlertDelivery>> SendAllAsync(Guid alertId, IReadOnlyList<EmergencyContact> contacts, string text, string title,
     IDictionary<string, string> data, CancellationToken ct, bool persist = true)
   {
-    var smsText = _opt.StripDiacritics ? TextHelper.StripDiacritics(text) : text;
+    var smsText = options.Value.StripDiacritics ? TextHelper.StripDiacritics(text) : text;
     var list = new List<AlertDelivery>();
     foreach (var c in contacts)
     {
-      var r = await _sms.SendAsync(c.Phone, smsText, ct);
+      var r = await sms.SendAsync(c.Phone, smsText, ct);
       list.Add(Make(alertId, c.Id, DeliveryChannel.Sms, r));
       if (!string.IsNullOrEmpty(c.LinkedUser?.FcmToken))
       {
-        var p = await _push.SendAsync(c.LinkedUser!.FcmToken!, title, text, data, ct);
+        var p = await push.SendAsync(c.LinkedUser!.FcmToken!, title, text, data, ct);
         list.Add(Make(alertId, c.Id, DeliveryChannel.Push, p));
       }
     }
-    if (persist) foreach (var d in list) await _uow.AlertDeliveries.AddAsync(d, ct);
+    if (persist) foreach (var d in list) await uow.AlertDeliveryRepository.AddAsync(d, ct);
     return list;
   }
 

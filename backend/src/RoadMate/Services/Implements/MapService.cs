@@ -1,32 +1,21 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-namespace RoadMate.Services;
-
-public interface IMapService
-{
-  Task<Result<DirectionsResponse>> DirectionsAsync(DirectionsRequest req, CancellationToken ct);
-  Task<Result<List<PlacePrediction>>> AutocompleteAsync(string q, double? lat, double? lng, CancellationToken ct);
-  Task<Result<PlaceDetail>> PlaceDetailAsync(string placeId, CancellationToken ct);
-  Task<Result<ReverseResult>> ReverseAsync(double lat, double lng, CancellationToken ct);
-}
+namespace RoadMate.Services.Implements;
 
 /// <summary>Proxy Goong Maps (giấu API key phía server). Định dạng JSON của Goong tương tự Google Maps.</summary>
-public class MapService : IMapService
+public class MapService(HttpClient http, IOptions<GoongOptions> options) : IMapService
 {
-  private readonly HttpClient _http; private readonly GoongOptions _o;
-  public MapService(HttpClient http, IOptions<GoongOptions> o) { _http = http; _o = o.Value; }
-
   private static string F(double d) => d.ToString("F6", CultureInfo.InvariantCulture);
   private static string? Str(JsonElement e, string name) => e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
 
   private async Task<Result<JsonElement>> GetAsync(string path, string query, CancellationToken ct)
   {
-    if (string.IsNullOrWhiteSpace(_o.ApiKey)) return Error.Failure("MAP_NOT_CONFIGURED", "Chưa cấu hình Goong:ApiKey.");
+    if (string.IsNullOrWhiteSpace(options.Value.ApiKey)) return Error.NotConfigured("MAP_NOT_CONFIGURED", "Chưa cấu hình Goong:ApiKey.");
     try
     {
-      var url = $"{_o.BaseUrl.TrimEnd('/')}/{path}?{query}&api_key={Uri.EscapeDataString(_o.ApiKey)}";
-      using var res = await _http.GetAsync(url, ct);
+      var url = $"{options.Value.BaseUrl.TrimEnd('/')}/{path}?{query}&api_key={Uri.EscapeDataString(options.Value.ApiKey)}";
+      using var res = await http.GetAsync(url, ct);
       if (!res.IsSuccessStatusCode) return Error.External("MAP_PROVIDER_ERROR", $"Goong trả về HTTP {(int)res.StatusCode}.");
       using var doc = await JsonDocument.ParseAsync(await res.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
       return doc.RootElement.Clone();

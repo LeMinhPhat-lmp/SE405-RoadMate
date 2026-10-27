@@ -1,77 +1,61 @@
-namespace RoadMate.Services;
+namespace RoadMate.Services.Implements;
 
-public interface ITripService
-{
-  Task<Result<List<TripListItemDto>>> ListAsync(string uid, string? status, CancellationToken ct);
-  Task<Result<TripDto>> GetAsync(string uid, Guid id, CancellationToken ct);
-  Task<Result<TripDto>> CreateAsync(string uid, TripUpsertRequest req, CancellationToken ct);
-  Task<Result<TripDto>> UpdateAsync(string uid, Guid id, TripUpsertRequest req, CancellationToken ct);
-  Task<Result> DeleteAsync(string uid, Guid id, CancellationToken ct);
-  Task<Result<StartTripResponse>> StartAsync(string uid, Guid id, StartTripRequest req, CancellationToken ct);
-  Task<Result<TripSummaryDto>> FinishAsync(string uid, Guid id, CancellationToken ct);
-  Task<Result<TripSummaryDto>> SummaryAsync(string uid, Guid id, CancellationToken ct);
-  Task<Result<TripDto>> SetRestAsync(string uid, Guid id, int minutes, CancellationToken ct);
-  Task<Result<TripDto>> ClearRestAsync(string uid, Guid id, CancellationToken ct);
-}
-
-public class TripService : ITripService
+public class TripService(IUnitOfWork uow, IOptions<TrackingOptions> tracking) : ITripService
 {
   private static readonly string[] Sens = { "low", "medium", "high" };
-  private readonly IUnitOfWork _uow; private readonly string _trackBase;
-  public TripService(IUnitOfWork uow, IOptions<TrackingOptions> t) { _uow = uow; _trackBase = t.Value.BaseUrl; }
 
-  public async Task<Result<List<TripListItemDto>>> ListAsync(string uid, string? status, CancellationToken ct) =>
-    (await _uow.Trips.ListByOwnerAsync(uid, status, ct)).Select(t => t.ToListItem()).ToList();
+  public async Task<Result<List<TripListItemDto>>> ListAsync(Guid userId, string? status, CancellationToken ct) =>
+    (await uow.TripRepository.ListByOwnerAsync(userId, status, ct)).Select(t => t.ToListItem()).ToList();
 
-  public async Task<Result<TripDto>> GetAsync(string uid, Guid id, CancellationToken ct)
+  public async Task<Result<TripDto>> GetAsync(Guid userId, Guid id, CancellationToken ct)
   {
-    var t = await _uow.Trips.GetOwnedWithDetailsAsync(id, uid, ct);
-    return t is null ? Errors.TripNotFound : t.ToDto(_trackBase);
+    var t = await uow.TripRepository.GetOwnedWithDetailsAsync(id, userId, ct);
+    return t is null ? Errors.TripNotFound : t.ToDto(tracking.Value.BaseUrl);
   }
 
-  public async Task<Result<TripDto>> CreateAsync(string uid, TripUpsertRequest req, CancellationToken ct)
+  public async Task<Result<TripDto>> CreateAsync(Guid userId, TripUpsertRequest req, CancellationToken ct)
   {
-    if (await _uow.Users.GetByUidAsync(uid, ct) is null) return Errors.UserNotSynced;
+    if (await uow.UserRepository.GetByIdAsync(userId, false, ct) is null) return Errors.UserNotSynced;
     var v = Validate(req); if (v.IsFailure) return v.Error;
-    var ids = await ResolveContactIds(uid, req.AlertContactIds, ct); if (ids.IsFailure) return ids.Error;
+    var ids = await ResolveContactIds(userId, req.AlertContactIds, ct); if (ids.IsFailure) return ids.Error;
 
-    var trip = new Trip { Id = Guid.NewGuid(), OwnerId = uid, Status = TripStatus.Draft, CreatedAt = DateTime.UtcNow };
+    var trip = new Trip { Id = Guid.NewGuid(), OwnerId = userId, Status = TripStatus.Draft };
     Apply(trip, req);
     SyncRecipients(trip, ids.Value);
-    await _uow.Trips.AddAsync(trip, ct);
-    await _uow.SaveChangesAsync(ct);
-    return trip.ToDto(_trackBase);
+    await uow.TripRepository.AddAsync(trip, ct);
+    await uow.SaveChangesAsync(ct);
+    return trip.ToDto(tracking.Value.BaseUrl);
   }
 
-  public async Task<Result<TripDto>> UpdateAsync(string uid, Guid id, TripUpsertRequest req, CancellationToken ct)
+  public async Task<Result<TripDto>> UpdateAsync(Guid userId, Guid id, TripUpsertRequest req, CancellationToken ct)
   {
-    var trip = await _uow.Trips.GetOwnedWithDetailsAsync(id, uid, ct);
+    var trip = await uow.TripRepository.GetOwnedWithDetailsAsync(id, userId, ct);
     if (trip is null) return Errors.TripNotFound;
     if (trip.Status != TripStatus.Draft) return Error.Conflict("TRIP_NOT_DRAFT", "Chỉ sửa được chuyến ở trạng thái nháp.");
     var v = Validate(req); if (v.IsFailure) return v.Error;
-    var ids = await ResolveContactIds(uid, req.AlertContactIds, ct); if (ids.IsFailure) return ids.Error;
+    var ids = await ResolveContactIds(userId, req.AlertContactIds, ct); if (ids.IsFailure) return ids.Error;
     Apply(trip, req);
     SyncRecipients(trip, ids.Value);
-    await _uow.SaveChangesAsync(ct);
-    return trip.ToDto(_trackBase);
+    await uow.SaveChangesAsync(ct);
+    return trip.ToDto(tracking.Value.BaseUrl);
   }
 
-  public async Task<Result> DeleteAsync(string uid, Guid id, CancellationToken ct)
+  public async Task<Result> DeleteAsync(Guid userId, Guid id, CancellationToken ct)
   {
-    var trip = await _uow.Trips.GetOwnedAsync(id, uid, ct);
+    var trip = await uow.TripRepository.GetOwnedAsync(id, userId, ct);
     if (trip is null) return Errors.TripNotFound;
     if (trip.Status == TripStatus.Active) return Error.Conflict("TRIP_ACTIVE", "Hãy kết thúc chuyến trước khi xoá.");
-    _uow.Trips.Remove(trip);
-    await _uow.SaveChangesAsync(ct);
+    uow.TripRepository.Delete(trip);
+    await uow.SaveChangesAsync(ct);
     return Result.Success();
   }
 
-  public async Task<Result<StartTripResponse>> StartAsync(string uid, Guid id, StartTripRequest req, CancellationToken ct)
+  public async Task<Result<StartTripResponse>> StartAsync(Guid userId, Guid id, StartTripRequest req, CancellationToken ct)
   {
-    var trip = await _uow.Trips.GetOwnedWithDetailsAsync(id, uid, ct);
+    var trip = await uow.TripRepository.GetOwnedWithDetailsAsync(id, userId, ct);
     if (trip is null) return Errors.TripNotFound;
     if (trip.Status != TripStatus.Draft) return Error.Conflict("TRIP_NOT_DRAFT", "Chuyến đã bắt đầu hoặc đã kết thúc.");
-    if (await _uow.Trips.HasActiveAsync(uid, ct)) return Error.Conflict("ANOTHER_TRIP_ACTIVE", "Bạn đang có một chuyến khác đang chạy.");
+    if (await uow.TripRepository.HasActiveAsync(userId, ct)) return Error.Conflict("ANOTHER_TRIP_ACTIVE", "Bạn đang có một chuyến khác đang chạy.");
 
     var now = DateTime.UtcNow;
     if (req.ExpectedReturnTime is not null)
@@ -82,35 +66,35 @@ public class TripService : ITripService
     }
     if (req.AlertContactIds is not null)
     {
-      var ids = await ResolveContactIds(uid, req.AlertContactIds, ct); if (ids.IsFailure) return ids.Error;
+      var ids = await ResolveContactIds(userId, req.AlertContactIds, ct); if (ids.IsFailure) return ids.Error;
       SyncRecipients(trip, ids.Value);
     }
     if (req.LiveShare is not null) trip.LiveShare = req.LiveShare.Value;
 
     var warnings = new List<string>();
-    if (await _uow.EmergencyContacts.CountByUserAsync(uid, ct) == 0)
+    if (await uow.EmergencyContactRepository.CountByUserAsync(userId, ct) == 0)
       warnings.Add("Bạn chưa có liên hệ khẩn cấp nào, cảnh báo sẽ không gửi được cho ai.");
     if (trip.ExpectedReturnTime is null) warnings.Add("Chưa đặt giờ dự kiến về nên sẽ không có cảnh báo về trễ.");
 
     trip.Status = TripStatus.Active;
     trip.StartTime = now;
     if (trip.LiveShare) { trip.TrackingToken ??= TokenGenerator.NewTrackingToken(); trip.TrackingExpiresAt = null; }
-    await _uow.SaveChangesAsync(ct);
+    await uow.SaveChangesAsync(ct);
 
-    var dto = trip.ToDto(_trackBase);
+    var dto = trip.ToDto(tracking.Value.BaseUrl);
     return new StartTripResponse(dto, dto.TrackingUrl, warnings);
   }
 
-  public async Task<Result<TripSummaryDto>> FinishAsync(string uid, Guid id, CancellationToken ct)
+  public async Task<Result<TripSummaryDto>> FinishAsync(Guid userId, Guid id, CancellationToken ct)
   {
-    var trip = await _uow.Trips.GetOwnedWithDetailsAsync(id, uid, ct);
+    var trip = await uow.TripRepository.GetOwnedWithDetailsAsync(id, userId, ct);
     if (trip is null) return Errors.TripNotFound;
     if (trip.Status != TripStatus.Active) return Errors.TripNotActive;
 
-    await _uow.ExecuteInTransactionAsync(async token =>
+    await uow.ExecuteInTransactionAsync(async token =>
     {
-      var points = await _uow.TripPoints.ListByTripAsync(id, token);
-      var alertCount = await _uow.Alerts.CountByTripAsync(id, token);
+      var points = await uow.TripPointRepository.ListByTripAsync(id, token);
+      var alertCount = await uow.AlertRepository.CountByTripAsync(id, token);
       var s = StatsCalculator.Compute(id, points, alertCount);
       if (trip.Stats is null) trip.Stats = s;
       else
@@ -122,38 +106,38 @@ public class TripService : ITripService
       var now = DateTime.UtcNow;
       trip.Status = TripStatus.Finished; trip.EndTime = now; trip.RestUntil = null;
       if (trip.TrackingToken is not null) trip.TrackingExpiresAt = now;   // vô hiệu link theo dõi
-      await _uow.SaveChangesAsync(token);
+      await uow.SaveChangesAsync(token);
     }, ct);
 
-    return new TripSummaryDto(trip.ToDto(_trackBase), trip.Stats!.ToDto());
+    return new TripSummaryDto(trip.ToDto(tracking.Value.BaseUrl), trip.Stats!.ToDto());
   }
 
-  public async Task<Result<TripSummaryDto>> SummaryAsync(string uid, Guid id, CancellationToken ct)
+  public async Task<Result<TripSummaryDto>> SummaryAsync(Guid userId, Guid id, CancellationToken ct)
   {
-    var trip = await _uow.Trips.GetOwnedWithDetailsAsync(id, uid, ct);
+    var trip = await uow.TripRepository.GetOwnedWithDetailsAsync(id, userId, ct);
     if (trip is null) return Errors.TripNotFound;
     if (trip.Status != TripStatus.Finished || trip.Stats is null) return Error.Conflict("TRIP_NOT_FINISHED", "Chuyến chưa kết thúc.");
-    return new TripSummaryDto(trip.ToDto(_trackBase), trip.Stats.ToDto());
+    return new TripSummaryDto(trip.ToDto(tracking.Value.BaseUrl), trip.Stats.ToDto());
   }
 
-  public async Task<Result<TripDto>> SetRestAsync(string uid, Guid id, int minutes, CancellationToken ct)
+  public async Task<Result<TripDto>> SetRestAsync(Guid userId, Guid id, int minutes, CancellationToken ct)
   {
     if (minutes is < 5 or > 480) return Error.Validation("INVALID_REST", "Thời gian nghỉ chân từ 5 đến 480 phút.");
-    var trip = await _uow.Trips.GetOwnedWithDetailsAsync(id, uid, ct);
+    var trip = await uow.TripRepository.GetOwnedWithDetailsAsync(id, userId, ct);
     if (trip is null) return Errors.TripNotFound;
     if (trip.Status != TripStatus.Active) return Errors.TripNotActive;
     trip.RestUntil = DateTime.UtcNow.AddMinutes(minutes);
-    await _uow.SaveChangesAsync(ct);
-    return trip.ToDto(_trackBase);
+    await uow.SaveChangesAsync(ct);
+    return trip.ToDto(tracking.Value.BaseUrl);
   }
 
-  public async Task<Result<TripDto>> ClearRestAsync(string uid, Guid id, CancellationToken ct)
+  public async Task<Result<TripDto>> ClearRestAsync(Guid userId, Guid id, CancellationToken ct)
   {
-    var trip = await _uow.Trips.GetOwnedWithDetailsAsync(id, uid, ct);
+    var trip = await uow.TripRepository.GetOwnedWithDetailsAsync(id, userId, ct);
     if (trip is null) return Errors.TripNotFound;
     trip.RestUntil = null;
-    await _uow.SaveChangesAsync(ct);
-    return trip.ToDto(_trackBase);
+    await uow.SaveChangesAsync(ct);
+    return trip.ToDto(tracking.Value.BaseUrl);
   }
 
   // ---------- helpers
@@ -169,11 +153,11 @@ public class TripService : ITripService
     return Result.Success();
   }
 
-  private async Task<Result<List<Guid>>> ResolveContactIds(string uid, List<Guid>? ids, CancellationToken ct)
+  private async Task<Result<List<Guid>>> ResolveContactIds(Guid userId, List<Guid>? ids, CancellationToken ct)
   {
     var distinct = (ids ?? new List<Guid>()).Distinct().ToList();
     if (distinct.Count == 0) return distinct;
-    var found = await _uow.EmergencyContacts.GetByIdsAsync(distinct, uid, ct);
+    var found = await uow.EmergencyContactRepository.GetByIdsAsync(distinct, userId, ct);
     return found.Count == distinct.Count ? distinct : Error.Validation("INVALID_CONTACT", "Có liên hệ không thuộc về bạn.");
   }
 

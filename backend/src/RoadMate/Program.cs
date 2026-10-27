@@ -7,6 +7,9 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using RoadMate.Data;
 using RoadMate.Infrastructure;
+using RoadMate.Infrastructure.Implements;
+using RoadMate.Repositories.Implements;
+using RoadMate.Services.Implements;
 
 var builder = WebApplication.CreateBuilder(args);
 var cfg = builder.Configuration;
@@ -45,10 +48,15 @@ else
   });
 }
 builder.Services.AddAuthorization();
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUserContext, HttpCurrentUserContext>();
+builder.Services.AddScoped<IClaimsTransformation, UserContextClaimsTransformation>();   // Firebase UID -> Id nội bộ (Guid)
 
 // ---------- Firebase Admin (FCM). Không có credential thì dùng LogPushSender.
 var credPath = cfg["Firebase:CredentialPath"];
-if (!string.IsNullOrWhiteSpace(credPath) && File.Exists(credPath))
+var firebaseLoaded = !string.IsNullOrWhiteSpace(credPath) && File.Exists(credPath);
+if (firebaseLoaded)
 {
   FirebaseApp.Create(new AppOptions { Credential = GoogleCredential.FromFile(credPath) });
   builder.Services.AddSingleton<IPushSender, FcmPushSender>();
@@ -59,8 +67,17 @@ else builder.Services.AddSingleton<IPushSender, LogPushSender>();
 if (string.Equals(cfg["Sms:Provider"], "esms", StringComparison.OrdinalIgnoreCase)) builder.Services.AddHttpClient<ISmsSender, ESmsSender>();
 else builder.Services.AddSingleton<ISmsSender, LogSmsSender>();
 
-// ---------- Layers: UnitOfWork -> Repository, Service
+// ---------- Repositories + UnitOfWork
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IEmergencyContactRepository, EmergencyContactRepository>();
+builder.Services.AddScoped<ITripRepository, TripRepository>();
+builder.Services.AddScoped<ITripPointRepository, TripPointRepository>();
+builder.Services.AddScoped<IMemoryRepository, MemoryRepository>();
+builder.Services.AddScoped<IAlertRepository, AlertRepository>();
+builder.Services.AddScoped<IAlertDeliveryRepository, AlertDeliveryRepository>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+// ---------- Services
 builder.Services.AddScoped<IAlertDispatcher, AlertDispatcher>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IEmergencyContactService, EmergencyContactService>();
@@ -72,9 +89,9 @@ builder.Services.AddHttpClient<IMapService, MapService>();
 builder.Services.AddHostedService<AlertRepeatWorker>();
 
 // ---------- Web
-builder.Services.AddControllers();
+builder.Services.AddControllers(o => o.Filters.Add<SyncedUserFilter>());
 builder.Services.AddProblemDetails();
-builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
+builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));   // TODO production: giới hạn origin
 builder.Services.AddRateLimiter(o =>
 {
   o.RejectionStatusCode = 429;
@@ -94,6 +111,8 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 var app = builder.Build();
+
+ConfigDiagnostics.Report(cfg, app.Logger, firebaseLoaded, useDevAuth);
 
 if (cfg.GetValue<bool>("Database:EnsureCreated"))
 {

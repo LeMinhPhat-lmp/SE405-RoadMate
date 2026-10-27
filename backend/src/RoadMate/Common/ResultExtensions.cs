@@ -13,6 +13,7 @@ public static class ResultExtensions
       ErrorType.Conflict => 409,
       ErrorType.TooManyRequests => 429,
       ErrorType.External => 502,
+      ErrorType.NotConfigured => 503,
       _ => 500
     };
     var pd = new ProblemDetails { Status = status, Title = e.Code, Detail = e.Message };

@@ -1,6 +1,43 @@
-@RoadMate_HostAddress = http://localhost:5027
+@host = http://localhost:5027
+@uid = user1
+# Dev auth: header X-Dev-Uid thay cho Firebase token (chỉ Development)
 
-GET {{RoadMate_HostAddress}}/weatherforecast/
-Accept: application/json
+### Đồng bộ tài khoản (gọi đầu tiên)
+POST {{host}}/api/v1/auth/sync
+X-Dev-Uid: {{uid}}
+Content-Type: application/json
 
-###
+{ "name": "Nguyen Van A", "fcmToken": null }
+
+### Thêm liên hệ khẩn cấp
+POST {{host}}/api/v1/emergency-contacts
+X-Dev-Uid: {{uid}}
+Content-Type: application/json
+
+{ "name": "Me", "phone": "0901234567", "relation": "Mẹ" }
+
+### Tạo chuyến nháp
+POST {{host}}/api/v1/trips
+X-Dev-Uid: {{uid}}
+Content-Type: application/json
+
+{
+  "title": "Sài Gòn - Đà Lạt",
+  "origin": { "name": "TP.HCM", "lat": 10.7769, "lng": 106.7009 },
+  "destination": { "name": "Đà Lạt", "lat": 11.9404, "lng": 108.4583 },
+  "waypoints": [], "avoidHighway": true, "avoidToll": false, "liveShare": true
+}
+
+### Bắt đầu chuyến (thay {tripId})
+POST {{host}}/api/v1/trips/{tripId}/start
+X-Dev-Uid: {{uid}}
+Content-Type: application/json
+
+{ "expectedReturnTime": null }
+
+### Giả lập va chạm (cần Debug:EnableSimulator=true)
+POST {{host}}/api/v1/debug/simulate-alert
+X-Dev-Uid: {{uid}}
+Content-Type: application/json
+
+{ "tripId": "{tripId}", "type": "crash" }

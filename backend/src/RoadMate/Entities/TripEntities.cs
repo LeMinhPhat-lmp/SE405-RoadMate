@@ -1,13 +1,11 @@
-using RoadMate.Entities.Abstractions;
-
 namespace RoadMate.Entities;
 
 public static class TripStatus { public const string Draft = "draft", Active = "active", Finished = "finished"; }
 public static class MemoryType { public const string Photo = "photo", Note = "note", Video = "video"; public static readonly string[] All = { Photo, Note, Video }; }
 
-public class Trip : BaseEntity
+public class Trip : FullAuditedEntity
 {
-  public string OwnerId { get; set; } = default!;
+  public Guid OwnerId { get; set; }
   public Guid? GroupId { get; set; }
   public string Title { get; set; } = "";
   public string Status { get; set; } = TripStatus.Draft;
@@ -22,7 +20,6 @@ public class Trip : BaseEntity
   public int EtaMinutes { get; set; }
   public bool AvoidHighway { get; set; }
   public bool AvoidToll { get; set; }
-  public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
   public DateTime? StartTime { get; set; }
   public DateTime? EndTime { get; set; }
   public DateTime? ExpectedReturnTime { get; set; }
@@ -44,9 +41,8 @@ public class Trip : BaseEntity
   public TripStats? Stats { get; set; }
 }
 
-public class TripWaypoint
+public class TripWaypoint : BaseEntity
 {
-  public Guid Id { get; set; }
   public Guid TripId { get; set; }
   public int Seq { get; set; }
   public string Name { get; set; } = "";
@@ -56,7 +52,7 @@ public class TripWaypoint
   public Trip? Trip { get; set; }
 }
 
-public class TripAlertRecipient
+public class TripAlertRecipient : BaseEntity               // bảng nối, unique (TripId, ContactId)
 {
   public Guid TripId { get; set; }
   public Guid ContactId { get; set; }
@@ -64,19 +60,19 @@ public class TripAlertRecipient
   public EmergencyContact? Contact { get; set; }
 }
 
-public class TripPoint : BaseEntity
+public class TripPoint : BaseEntity                        // số lượng lớn: không audit, không soft delete
 {
   public Guid TripId { get; set; }
   public double Lat { get; set; }
   public double Lng { get; set; }
-  public double? Speed { get; set; }      // km/h
+  public double? Speed { get; set; }                       // km/h
   public double? Altitude { get; set; }
   public int? Battery { get; set; }
   public DateTime RecordedAt { get; set; }
   public Trip? Trip { get; set; }
 }
 
-public class TripLive
+public class TripLive : BaseEntity                         // 1-1 với Trip (unique TripId), luôn ghi đè
 {
   public Guid TripId { get; set; }
   public double Lat { get; set; }
@@ -88,7 +84,7 @@ public class TripLive
   public Trip? Trip { get; set; }
 }
 
-public class TripStats
+public class TripStats : BaseEntity                        // 1-1 với Trip (unique TripId)
 {
   public Guid TripId { get; set; }
   public double DistanceKm { get; set; }
@@ -102,11 +98,11 @@ public class TripStats
   public Trip? Trip { get; set; }
 }
 
-public class Memory : BaseEntity
+public class Memory : FullAuditedEntity
 {
   public Guid TripId { get; set; }
   public string Type { get; set; } = MemoryType.Note;
-  public string? MediaUrl { get; set; }         // URL Firebase Storage (client tự upload)
+  public string? MediaUrl { get; set; }                    // URL Firebase Storage (client tự upload)
   public string? Text { get; set; }
   public double? Lat { get; set; }
   public double? Lng { get; set; }
