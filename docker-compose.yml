@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: roadmate-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: roadmate
+      POSTGRES_USER: roadmate
+      POSTGRES_PASSWORD: roadmate_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - roadmate_pg:/var/lib/postgresql/data
+volumes:
+  roadmate_pg:
