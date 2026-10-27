@@ -1,6 +1,8 @@
+using RoadMate.Entities.Abstractions;
+
 namespace RoadMate.Entities;
 
-public class User
+public class User : BaseEntity
 {
   public string Uid { get; set; } = default!;            // Firebase UID
   public string Name { get; set; } = "";
@@ -22,9 +24,8 @@ public class User
   public ICollection<Trip> Trips { get; set; } = new List<Trip>();
 }
 
-public class EmergencyContact
+public class EmergencyContact : BaseEntity
 {
-  public Guid Id { get; set; }
   public string UserId { get; set; } = default!;
   public string? LinkedUserId { get; set; }
   public string Name { get; set; } = "";

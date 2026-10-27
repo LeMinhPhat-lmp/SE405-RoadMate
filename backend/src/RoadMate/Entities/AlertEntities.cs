@@ -1,3 +1,5 @@
+using RoadMate.Entities.Abstractions;
+
 namespace RoadMate.Entities;
 
 public static class AlertType
@@ -13,9 +15,8 @@ public static class AlertStatus
 public static class DeliveryChannel { public const string Sms = "sms", Push = "push", Email = "email"; }
 public static class DeliveryStatus { public const string Queued = "queued", Sent = "sent", Failed = "failed"; }
 
-public class Alert
+public class Alert : BaseEntity
 {
-  public Guid Id { get; set; }
   public Guid TripId { get; set; }
   public string UserId { get; set; } = default!;
   public string ClientId { get; set; } = default!;      // idempotency
@@ -36,9 +37,8 @@ public class Alert
   public bool IsOpen => Status is AlertStatus.Pending or AlertStatus.Sent;
 }
 
-public class AlertDelivery
+public class AlertDelivery : BaseEntity
 {
-  public Guid Id { get; set; }
   public Guid AlertId { get; set; }
   public Guid? ContactId { get; set; }
   public string Channel { get; set; } = DeliveryChannel.Sms;

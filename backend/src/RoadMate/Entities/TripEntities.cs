@@ -1,11 +1,12 @@
+using RoadMate.Entities.Abstractions;
+
 namespace RoadMate.Entities;
 
 public static class TripStatus { public const string Draft = "draft", Active = "active", Finished = "finished"; }
 public static class MemoryType { public const string Photo = "photo", Note = "note", Video = "video"; public static readonly string[] All = { Photo, Note, Video }; }
 
-public class Trip
+public class Trip : BaseEntity
 {
-  public Guid Id { get; set; }
   public string OwnerId { get; set; } = default!;
   public Guid? GroupId { get; set; }
   public string Title { get; set; } = "";
@@ -63,9 +64,8 @@ public class TripAlertRecipient
   public EmergencyContact? Contact { get; set; }
 }
 
-public class TripPoint
+public class TripPoint : BaseEntity
 {
-  public long Id { get; set; }
   public Guid TripId { get; set; }
   public double Lat { get; set; }
   public double Lng { get; set; }
@@ -102,9 +102,8 @@ public class TripStats
   public Trip? Trip { get; set; }
 }
 
-public class Memory
+public class Memory : BaseEntity
 {
-  public Guid Id { get; set; }
   public Guid TripId { get; set; }
   public string Type { get; set; } = MemoryType.Note;
   public string? MediaUrl { get; set; }         // URL Firebase Storage (client tự upload)
