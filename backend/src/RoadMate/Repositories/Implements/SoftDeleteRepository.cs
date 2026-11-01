@@ -10,9 +10,22 @@ public abstract class SoftDeleteRepository<T>(AppDbContext context, ICurrentUser
   : Repository<T>(context), ISoftDeleteRepository<T>
   where T : BaseEntity, ISoftDeletableEntity
 {
-  public void Delete(T entity) => Mark(entity, DateTimeOffset.UtcNow, currentUser.UserId ?? AuditConstants.SystemUserId);
+  public void Delete(T entity)
+  {
+    var entry = context.Entry(entity);
+    entry.Property(nameof(ISoftDeletableEntity.DeletedAt)).CurrentValue = DateTimeOffset.UtcNow;
+    entry.Property(nameof(ISoftDeletableEntity.DeletedBy)).CurrentValue = currentUser.UserId ?? AuditConstants.SystemUserId;
+  }
+
   public void DeleteRange(IEnumerable<T> entities) { foreach (var e in entities) Delete(e); }
-  public void Restore(T entity) => Mark(entity, null, null);
+
+  public void Restore(T entity)
+  {
+    var entry = context.Entry(entity);
+    entry.Property(nameof(ISoftDeletableEntity.DeletedAt)).CurrentValue = null;
+    entry.Property(nameof(ISoftDeletableEntity.DeletedBy)).CurrentValue = null;
+  }
+
   public void RestoreRange(IEnumerable<T> entities) { foreach (var e in entities) Restore(e); }
 
   public async Task<T?> GetDeletedByIdAsync(Guid id, bool trackChanges = true, CancellationToken ct = default)
@@ -29,12 +42,5 @@ public abstract class SoftDeleteRepository<T>(AppDbContext context, ICurrentUser
     return await Set.IgnoreQueryFilters().AsNoTracking()
       .Where(e => EF.Property<DateTimeOffset?>(e, nameof(ISoftDeletableEntity.DeletedAt)) != null)
       .OrderBy(e => e.Id).Skip(skip).Take(take).ToListAsync(ct);
-  }
-
-  private void Mark(T entity, DateTimeOffset? at, Guid? by)
-  {
-    var entry = context.Entry(entity);
-    entry.Property(nameof(ISoftDeletableEntity.DeletedAt)).CurrentValue = at;
-    entry.Property(nameof(ISoftDeletableEntity.DeletedBy)).CurrentValue = by;
   }
 }
