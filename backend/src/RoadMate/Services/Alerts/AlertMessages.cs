@@ -5,7 +5,8 @@ namespace RoadMate.Services.Alerts;
 /// <summary>Soạn nội dung SMS/push cho các loại thông báo của cảnh báo (hàm thuần, không I/O).</summary>
 public static class AlertMessages
 {
-  public static NotificationContent ForAlert(Alert a, User u, bool isRepeat)
+  /// <param name="address">Địa chỉ chữ của vị trí (reverse geocode); null nếu không lấy được.</param>
+  public static NotificationContent ForAlert(Alert a, User u, bool isRepeat, string? address = null)
   {
     var reason = a.Type switch
     {
@@ -21,6 +22,7 @@ public static class AlertMessages
     var sb = new StringBuilder("[RoadMate]");
     if (isRepeat) sb.Append(" CẬP NHẬT");
     sb.Append($" {u.Name} {reason}. Vị trí: https://maps.google.com/?q={a.Lat.ToCoordinate()},{a.Lng.ToCoordinate()}");
+    if (!string.IsNullOrWhiteSpace(address)) sb.Append($" (gần {address})");
     sb.Append($". Lúc {DateTime.UtcNow.AddHours(7):HH:mm dd/MM}.");
     if (!string.IsNullOrWhiteSpace(u.BloodType)) sb.Append($" Nhóm máu: {u.BloodType}.");
     if (!string.IsNullOrWhiteSpace(u.PlateNumber)) sb.Append($" Biển số: {u.PlateNumber}.");

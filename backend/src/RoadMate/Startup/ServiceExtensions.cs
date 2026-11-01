@@ -27,8 +27,14 @@ public static class ServiceExtensions
     .AddScoped<IAlertService, AlertService>()
     .AddScoped<IAlertRepeatProcessor, AlertRepeatProcessor>()
     .AddHostedService<AlertRepeatWorker>()
-    // Maps (Goong)
-    .AddHttpClient<IGoongClient, GoongClient>().Services
+    // Maps (Goong REST API V2)
+    .AddMemoryCache()
+    .AddHttpClient<IGoongClient, GoongClient>((sp, http) =>
+      http.Timeout = TimeSpan.FromSeconds(Math.Clamp(sp.GetRequiredService<IOptions<GoongOptions>>().Value.TimeoutSeconds, 1, 60)))
+      .RemoveAllLoggers()   // URL gọi Goong chứa api_key → không để HttpClient log URL
+      .Services
     .AddScoped<IRoutingService, RoutingService>()
-    .AddScoped<IPlaceService, PlaceService>();
+    .AddScoped<IPlaceService, PlaceService>()
+    .AddScoped<IGeocodingService, GeocodingService>()
+    .AddScoped<ITripRouteService, TripRouteService>();
 }
