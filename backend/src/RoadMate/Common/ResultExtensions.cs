@@ -20,13 +20,3 @@ public static class ResultExtensions
     return new ObjectResult(pd) { StatusCode = status };
   }
 }
-
-public static class Errors
-{
-  public static readonly Error UserNotSynced = Error.Conflict("USER_NOT_SYNCED", "Chưa đồng bộ tài khoản, hãy gọi POST /auth/sync sau khi đăng nhập.");
-  public static readonly Error TripNotFound = Error.NotFound("TRIP_NOT_FOUND", "Không tìm thấy chuyến đi.");
-  public static readonly Error AlertNotFound = Error.NotFound("ALERT_NOT_FOUND", "Không tìm thấy cảnh báo.");
-  public static readonly Error ContactNotFound = Error.NotFound("CONTACT_NOT_FOUND", "Không tìm thấy liên hệ.");
-  public static readonly Error MemoryNotFound = Error.NotFound("MEMORY_NOT_FOUND", "Không tìm thấy kỷ niệm.");
-  public static readonly Error TripNotActive = Error.Conflict("TRIP_NOT_ACTIVE", "Chuyến đi chưa bắt đầu hoặc đã kết thúc.");
-}
