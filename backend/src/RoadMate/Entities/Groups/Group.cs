@@ -1,6 +1,5 @@
 namespace RoadMate.Entities.Groups;
 
-// P1: entity đã có để migration đầy đủ, CHƯA có service/endpoint.
 public class Group : FullAuditedEntity
 {
   public string Code { get; set; } = "";

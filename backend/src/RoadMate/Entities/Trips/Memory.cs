@@ -4,7 +4,7 @@ public class Memory : FullAuditedEntity
 {
   public Guid TripId { get; set; }
   public string Type { get; set; } = MemoryType.Note;
-  public string? MediaUrl { get; set; }                    // URL Firebase Storage (client tự upload)
+  public string? MediaPath { get; set; }                   // đường dẫn object trong bucket (users/{uid}/trips/{tripId}/{id}.ext); URL đọc được ký theo yêu cầu
   public string? Text { get; set; }
   public double? Lat { get; set; }
   public double? Lng { get; set; }

@@ -10,7 +10,7 @@ public class SyncedUserFilter : IAsyncActionFilter
     var user = context.HttpContext.User;
     var skip = context.ActionDescriptor.EndpointMetadata.Any(m => m is AllowUnsyncedUserAttribute or IAllowAnonymous);
     if (skip || user.Identity?.IsAuthenticated != true || user.HasClaim(c => c.Type == UserClaims.InternalId)) return next();
-    context.Result = Errors.UserNotSynced.ToProblem();
+    context.Result = Errors.UserNotSynced.ToProblem(context.HttpContext);
     return Task.CompletedTask;
   }
 }

@@ -8,4 +8,6 @@ public interface ITripLifecycleService
   Task<Result<TripSummaryDto>> SummaryAsync(Guid userId, Guid id, CancellationToken ct);
   Task<Result<TripDto>> SetRestAsync(Guid userId, Guid id, int minutes, CancellationToken ct);
   Task<Result<TripDto>> ClearRestAsync(Guid userId, Guid id, CancellationToken ct);
+  /// <summary>Chủ chuyến báo "vẫn đang đi": dời giờ dự kiến về, reset nhắc về trễ và đóng cảnh báo lateReturn đang mở.</summary>
+  Task<Result<TripDto>> ExtendReturnAsync(Guid userId, Guid id, DateTime expectedReturnTime, CancellationToken ct);
 }

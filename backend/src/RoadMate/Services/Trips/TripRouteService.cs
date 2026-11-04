@@ -6,7 +6,7 @@ public class TripRouteService(IUnitOfWork uow, IRoutingService routing) : ITripR
   {
     var trip = await uow.TripRepository.GetOwnedWithDetailsAsync(tripId, userId, ct);
     if (trip is null) return Errors.TripNotFound;
-    if (trip.Status == TripStatus.Finished) return Error.Conflict("TRIP_FINISHED", "Chuyến đã kết thúc, không thể tính lại lộ trình.");
+    if (trip.Status == TripStatus.Finished) return Errors.TripFinished;
 
     var reroute = req.From is not null;
     if (reroute && trip.Status != TripStatus.Active) return Errors.TripNotActive;

@@ -12,7 +12,7 @@ public abstract class SoftDeleteRepository<T>(AppDbContext context, ICurrentUser
 {
   public void Delete(T entity)
   {
-    var entry = context.Entry(entity);
+    var entry = Context.Entry(entity);
     entry.Property(nameof(ISoftDeletableEntity.DeletedAt)).CurrentValue = DateTimeOffset.UtcNow;
     entry.Property(nameof(ISoftDeletableEntity.DeletedBy)).CurrentValue = currentUser.UserId ?? AuditConstants.SystemUserId;
   }
@@ -21,7 +21,7 @@ public abstract class SoftDeleteRepository<T>(AppDbContext context, ICurrentUser
 
   public void Restore(T entity)
   {
-    var entry = context.Entry(entity);
+    var entry = Context.Entry(entity);
     entry.Property(nameof(ISoftDeletableEntity.DeletedAt)).CurrentValue = null;
     entry.Property(nameof(ISoftDeletableEntity.DeletedBy)).CurrentValue = null;
   }

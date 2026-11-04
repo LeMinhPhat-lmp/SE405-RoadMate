@@ -2,21 +2,23 @@ namespace RoadMate.Common;
 
 public static class ResultExtensions
 {
-  public static ObjectResult ToProblem(this Error e)
+  public static int ToStatusCode(this ErrorType type) => type switch
   {
-    var status = e.Type switch
-    {
-      ErrorType.Validation => 400,
-      ErrorType.Unauthorized => 401,
-      ErrorType.Forbidden => 403,
-      ErrorType.NotFound => 404,
-      ErrorType.Conflict => 409,
-      ErrorType.TooManyRequests => 429,
-      ErrorType.External => 502,
-      ErrorType.NotConfigured => 503,
-      _ => 500
-    };
-    var pd = new ProblemDetails { Status = status, Title = e.Code, Detail = e.Message };
-    return new ObjectResult(pd) { StatusCode = status };
+    ErrorType.Validation => StatusCodes.Status400BadRequest,
+    ErrorType.Unauthorized => StatusCodes.Status401Unauthorized,
+    ErrorType.Forbidden => StatusCodes.Status403Forbidden,
+    ErrorType.NotFound => StatusCodes.Status404NotFound,
+    ErrorType.Conflict => StatusCodes.Status409Conflict,
+    ErrorType.TooManyRequests => StatusCodes.Status429TooManyRequests,
+    ErrorType.External => StatusCodes.Status502BadGateway,
+    ErrorType.NotConfigured => StatusCodes.Status503ServiceUnavailable,
+    _ => StatusCodes.Status500InternalServerError
+  };
+
+  /// <summary>Lỗi nghiệp vụ -> ProblemDetails (Title = mã lỗi, Detail = thông báo tiếng Việt, kèm traceId/correlationId).</summary>
+  public static ObjectResult ToProblem(this Error e, HttpContext http)
+  {
+    var pd = ProblemFactory.Create(http, e.Type.ToStatusCode(), e.Code, e.Message);
+    return new ObjectResult(pd) { StatusCode = pd.Status };
   }
 }

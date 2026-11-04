@@ -41,3 +41,41 @@ X-Dev-Uid: {{uid}}
 Content-Type: application/json
 
 { "tripId": "{tripId}", "type": "crash" }
+
+
+### ===== V3 =====
+
+### Xin URL upload ảnh (thay {tripId}); client PUT file tới uploadUrl kèm ĐÚNG các header trong "headers"
+POST {{host}}/api/v1/trips/{tripId}/media/upload-url
+X-Dev-Uid: {{uid}}
+Content-Type: application/json
+
+{ "kind": "photo", "contentType": "image/jpeg", "sizeBytes": 1200000 }
+
+### Lưu kỷ niệm sau khi upload xong (mediaPath lấy từ bước trên)
+POST {{host}}/api/v1/trips/{tripId}/memories
+X-Dev-Uid: {{uid}}
+Content-Type: application/json
+
+{ "type": "photo", "mediaPath": "users/user1/trips/{tripId}/<32 hex>.jpg", "text": "Đèo Prenn" }
+
+### Lấy lại URL đọc khi mediaUrl cũ hết hạn
+GET {{host}}/api/v1/memories/{memoryId}/media-url
+X-Dev-Uid: {{uid}}
+
+### Dời giờ dự kiến về (ngăn cảnh báo về trễ)
+PUT {{host}}/api/v1/trips/{tripId}/expected-return
+X-Dev-Uid: {{uid}}
+Content-Type: application/json
+
+{ "expectedReturnTime": "2026-12-01T12:00:00Z" }
+
+### Giả lập va chạm – mặc định dryRun (không gửi SMS thật)
+POST {{host}}/api/v1/debug/simulate-alert
+X-Dev-Uid: {{uid}}
+Content-Type: application/json
+
+{ "tripId": "{tripId}", "type": "crash", "dryRun": true }
+
+### Người thân xác nhận (token trong link SMS) – không cần đăng nhập
+POST {{host}}/api/v1/public/ack/{ackToken}

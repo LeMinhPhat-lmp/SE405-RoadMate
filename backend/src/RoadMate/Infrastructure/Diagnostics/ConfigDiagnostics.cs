@@ -18,7 +18,13 @@ public static class ConfigDiagnostics
     else if (string.IsNullOrWhiteSpace(cfg["Sms:ESms:ApiKey"]) || string.IsNullOrWhiteSpace(cfg["Sms:ESms:SecretKey"]))
       log.LogWarning("[CONFIG] Sms:Provider=esms nhưng thiếu ApiKey/SecretKey.");
     if (!firebaseCredentialLoaded)
-      log.LogWarning("[CONFIG] Chưa nạp Firebase:CredentialPath: push FCM CHỈ ĐƯỢC GHI LOG.");
+      log.LogWarning("[CONFIG] Chưa nạp được service account (Firebase:CredentialPath): push FCM CHỈ ĐƯỢC GHI LOG và upload/đọc media (pre-signed URL) trả 503 STORAGE_NOT_CONFIGURED.");
+    else if (string.IsNullOrWhiteSpace(cfg["Storage:Bucket"]))
+      log.LogWarning("[CONFIG] Thiếu Storage:Bucket (vd se405-roadmate.firebasestorage.app): không ký được URL media.");
+    if (string.IsNullOrWhiteSpace(cfg["Tracking:AckUrl"]))
+      log.LogWarning("[CONFIG] Tracking:AckUrl để trống: SMS cảnh báo không kèm link để người thân xác nhận 'đã liên lạc được'.");
+    if (cfg.GetValue<bool>("Observability:Elasticsearch:Enabled"))
+      log.LogInformation("[CONFIG] Log được đẩy tới Elasticsearch {Uri}.", cfg["Observability:Elasticsearch:Uri"]);
     if ((cfg["Tracking:BaseUrl"] ?? "").Contains("roadmate.app"))
       log.LogWarning("[CONFIG] Tracking:BaseUrl đang là domain mẫu (roadmate.app): link theo dõi gửi cho người thân chưa mở được.");
     if (cfg.GetValue<bool>("Debug:EnableSimulator")) log.LogWarning("[CONFIG] Debug:EnableSimulator đang bật.");

@@ -16,6 +16,11 @@ public class TripLifecycleController(ITripLifecycleService svc) : ApiControllerB
   [HttpPost("trips/{id:guid}/rest")]
   public async Task<IActionResult> SetRest(Guid id, RestRequest req, CancellationToken ct) => Handle(await svc.SetRestAsync(UserId, id, req.Minutes, ct));
 
+  /// <summary>"Tôi vẫn ổn, đang đi tiếp": dời giờ dự kiến về (ngăn cảnh báo về trễ).</summary>
+  [HttpPut("trips/{id:guid}/expected-return")]
+  public async Task<IActionResult> ExtendReturn(Guid id, ExtendReturnRequest req, CancellationToken ct) =>
+    Handle(await svc.ExtendReturnAsync(UserId, id, req.ExpectedReturnTime, ct));
+
   [HttpDelete("trips/{id:guid}/rest")]
   public async Task<IActionResult> ClearRest(Guid id, CancellationToken ct) => Handle(await svc.ClearRestAsync(UserId, id, ct));
 }

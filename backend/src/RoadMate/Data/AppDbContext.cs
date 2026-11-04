@@ -13,6 +13,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUserCo
   public DbSet<Memory> Memories => Set<Memory>();
   public DbSet<Alert> Alerts => Set<Alert>();
   public DbSet<AlertDelivery> AlertDeliveries => Set<AlertDelivery>();
+  public DbSet<AlertAck> AlertAcks => Set<AlertAck>();
   public DbSet<Group> Groups => Set<Group>();
   public DbSet<GroupMember> GroupMembers => Set<GroupMember>();
   public DbSet<GroupMessage> GroupMessages => Set<GroupMessage>();
