@@ -12,5 +12,9 @@ public static class PersistenceExtensions
     .AddScoped<IMemoryRepository, MemoryRepository>()
     .AddScoped<IAlertRepository, AlertRepository>()
     .AddScoped<IAlertDeliveryRepository, AlertDeliveryRepository>()
+    .AddScoped<IAlertAckRepository, AlertAckRepository>()
+    .AddScoped<IGroupRepository, GroupRepository>()
+    .AddScoped<IGroupMemberRepository, GroupMemberRepository>()
+    .AddScoped<IGroupMessageRepository, GroupMessageRepository>()
     .AddScoped<IUnitOfWork, UnitOfWork>();
 }

@@ -7,7 +7,7 @@ namespace RoadMate.Infrastructure.Auth;
 public class DevAuthHandler(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder)
   : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
-  public const string Scheme = "Dev";
+  public new const string Scheme = "Dev";
 
   protected override Task<AuthenticateResult> HandleAuthenticateAsync()
   {

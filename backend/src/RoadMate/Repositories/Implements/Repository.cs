@@ -8,6 +8,7 @@ namespace RoadMate.Repositories.Implements;
 /// </summary>
 public class Repository<T>(AppDbContext context) : IRepository<T> where T : BaseEntity
 {
+  protected readonly AppDbContext Context = context;
   protected readonly DbSet<T> Set = context.Set<T>();
 
   public async Task<T?> GetByIdAsync(Guid id, bool trackChanges = false, CancellationToken ct = default)

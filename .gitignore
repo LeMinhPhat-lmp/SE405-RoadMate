@@ -55,3 +55,8 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+*se405-roadmate-*.json
+*firebase-adminsdk*.json
+*.env*
+!.env.example
+./src/RoadMate/secrets/

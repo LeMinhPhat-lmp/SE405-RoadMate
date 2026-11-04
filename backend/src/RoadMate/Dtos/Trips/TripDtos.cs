@@ -8,6 +8,6 @@ public record TripUpsertRequest(string Title, LocationDto Origin, LocationDto De
 public record TripDto(Guid Id, string Title, string Status, LocationDto Origin, LocationDto Destination, List<WaypointDto> Waypoints,
   string? PlannedPolyline, double DistanceKm, int EtaMinutes, bool AvoidHighway, bool AvoidToll, DateTime? StartTime, DateTime? EndTime,
   DateTime? ExpectedReturnTime, int? IdleMinutes, string? CrashSensitivity, bool LiveShare, string? TrackingUrl, DateTime? RestUntil,
-  List<Guid> AlertContactIds);
+  List<Guid> AlertContactIds, Guid? GroupId);
 public record TripListItemDto(Guid Id, string Title, string Status, string OriginName, string DestName, double DistanceKm,
   DateTime? StartTime, DateTime? EndTime, DateTimeOffset CreatedAt);

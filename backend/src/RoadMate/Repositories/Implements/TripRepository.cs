@@ -18,6 +18,12 @@ public class TripRepository(AppDbContext context, ICurrentUserContext currentUse
   }
   public Task<bool> HasActiveAsync(Guid userId, CancellationToken ct = default) =>
     Set.AnyAsync(t => t.OwnerId == userId && t.Status == TripStatus.Active, ct);
+  public Task<List<Guid>> ListActiveIdsAsync(CancellationToken ct = default) =>
+    Set.AsNoTracking().Where(t => t.Status == TripStatus.Active).Select(t => t.Id).ToListAsync(ct);
+  public Task<Trip?> GetActiveForMonitoringAsync(Guid id, CancellationToken ct = default) =>
+    Set.Include(t => t.Owner).Include(t => t.Live).Include(t => t.Waypoints).AsSplitQuery().FirstOrDefaultAsync(t => t.Id == id && t.Status == TripStatus.Active, ct);
+  public Task<List<Trip>> ListByGroupAndOwnerAsync(Guid groupId, Guid ownerId, CancellationToken ct = default) =>
+    Set.Where(t => t.GroupId == groupId && t.OwnerId == ownerId).ToListAsync(ct);
   public Task<Trip?> GetByActiveTrackingTokenAsync(string token, DateTime now, CancellationToken ct = default) =>
     string.IsNullOrWhiteSpace(token) || token.Length > 64
       ? Task.FromResult<Trip?>(null)

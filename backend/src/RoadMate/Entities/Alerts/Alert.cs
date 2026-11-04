@@ -15,10 +15,12 @@ public class Alert : AuditableEntity
   public DateTime? NextRepeatAt { get; set; }
   public DateTime? ResolvedAt { get; set; }
   public string? ResolvedBy { get; set; }                  // xem AlertResolver
+  public string? SimulationMode { get; set; }              // null = cảnh báo thật; xem Entities/Alerts/SimulationMode
 
   public Trip? Trip { get; set; }
   public User? User { get; set; }
   public ICollection<AlertDelivery> Deliveries { get; set; } = new List<AlertDelivery>();
+  public ICollection<AlertAck> Acks { get; set; } = new List<AlertAck>();
   public bool IsOpen => Status is AlertStatus.Pending or AlertStatus.Sent;
 
   /// <summary>Đóng cảnh báo (cancelled/resolved) và dừng lặp.</summary>
