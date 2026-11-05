@@ -6,12 +6,13 @@ const apiBaseUrl = String.fromEnvironment(
 );
 
 class RoadMateApi {
-  RoadMateApi(this._client, this._prefs);
+  RoadMateApi(this._client);
 
   final http.Client _client;
-  final SharedPreferences _prefs;
+  SharedPreferences? _prefs;
 
   Future<Map<String, String>> _headers() async {
+    _prefs ??= await SharedPreferences.getInstance();
     final headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
@@ -20,7 +21,7 @@ class RoadMateApi {
       final token = await FirebaseAuth.instance.currentUser?.getIdToken();
       if (token != null) headers['Authorization'] = '******';
     } else {
-      headers['X-Dev-Uid'] = _prefs.getString('devUid') ?? 'user1';
+      headers['X-Dev-Uid'] = _prefs?.getString('devUid') ?? 'user1';
     }
     return headers;
   }
@@ -29,7 +30,13 @@ class RoadMateApi {
     final request = http.Request(method, Uri.parse('$apiBaseUrl$path'));
     request.headers.addAll(await _headers());
     if (body != null) request.body = jsonEncode(body);
-    final response = await _client.send(request);
+    final response = await _client
+        .send(request)
+        .timeout(
+          const Duration(seconds: 10),
+          onTimeout: () =>
+              throw Exception('API request timed out: $apiBaseUrl'),
+        );
     final text = await response.stream.bytesToString();
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception(

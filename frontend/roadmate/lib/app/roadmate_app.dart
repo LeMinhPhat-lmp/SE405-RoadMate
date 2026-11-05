@@ -28,33 +28,9 @@ class Shell extends StatefulWidget {
 class _ShellState extends State<Shell> {
   int index = 0;
   String? activeTripId;
-  late final Future<void> syncUser;
 
   @override
-  void initState() {
-    super.initState();
-    syncUser = widget.api.syncUser('Demo Rider');
-  }
-
-  @override
-  Widget build(BuildContext context) => FutureBuilder<void>(
-    future: syncUser,
-    builder: (context, snapshot) {
-      if (snapshot.connectionState != ConnectionState.done) {
-        return const Scaffold(body: Center(child: CircularProgressIndicator()));
-      }
-      if (snapshot.hasError) {
-        return Scaffold(
-          body: Center(
-            child: ErrorBanner(
-              'Unable to connect to RoadMate: ${snapshot.error}',
-            ),
-          ),
-        );
-      }
-      return _buildShell(context);
-    },
-  );
+  Widget build(BuildContext context) => _buildShell(context);
 
   Widget _buildShell(BuildContext context) {
     final pages = [
@@ -69,7 +45,13 @@ class _ShellState extends State<Shell> {
     ];
     return Scaffold(
       body: SafeArea(
-        child: IndexedStack(index: index, children: pages),
+        child: Column(
+          children: [
+            Expanded(
+              child: IndexedStack(index: index, children: pages),
+            ),
+          ],
+        ),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,

@@ -7,7 +7,7 @@ class FirebaseBridge {
     try {
       await Firebase.initializeApp();
       available = true;
-    } on FirebaseException {
+    } on Object {
       available = false;
     }
   }

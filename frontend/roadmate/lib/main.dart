@@ -17,9 +17,8 @@ part 'features/contacts/contacts_page.dart';
 part 'features/profile/profile_page.dart';
 part 'widgets/common_widgets.dart';
 
-Future<void> main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await FirebaseBridge.initialize();
-  final prefs = await SharedPreferences.getInstance();
-  runApp(RoadMateApp(api: RoadMateApi(http.Client(), prefs)));
+  unawaited(FirebaseBridge.initialize());
+  runApp(RoadMateApp(api: RoadMateApi(http.Client())));
 }
