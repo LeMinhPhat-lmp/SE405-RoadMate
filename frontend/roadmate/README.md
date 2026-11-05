@@ -24,13 +24,34 @@ flutter run --dart-define=ROAD_MATE_API_URL=http://192.168.1.10:5000/api/v1
 Make sure the backend listens on the LAN interface, Windows Firewall allows
 port `5000`, and the phone and computer are on the same network.
 
-## Firebase setup later
+## Firebase setup
 
-Create a Firebase Android app, download `google-services.json` into
-`android/app/`, and run FlutterFire configuration. The app already attempts
-Firebase initialization. When Firebase is available, it sends the current
-Firebase ID token to the API; otherwise it falls back to the development
-header.
+Create a Firebase project and enable **Authentication > Sign-in method >
+Email/Password**. Register an Android app with package name
+`com.example.roadmate`, then download `google-services.json` into
+`android/app/`. Run `flutter pub get` and start the app. The app displays a
+Firebase email/password sign-in screen when Firebase is configured.
+
+After sign-in or registration, the app calls `/api/v1/auth/sync` and sends the
+Firebase ID token as `Authorization: Bearer <token>` on subsequent requests.
+The backend validates that token and maps its Firebase UID to the RoadMate
+user.
+
+For the backend, create a Firebase service-account key from **Project
+settings > Service accounts** and store it outside the repository. Configure
+the backend with .NET user secrets:
+
+```powershell
+cd backend/src/RoadMate
+dotnet user-secrets init
+dotnet user-secrets set "Firebase:ProjectId" "your-project-id"
+dotnet user-secrets set "Firebase:CredentialPath" "D:\Secrets\roadmate-firebase-admin.json"
+```
+
+Set `Auth:UseDevAuth` to `false` when testing Firebase authentication. Keep it
+`true` for the development-header fallback before Firebase is configured.
+
+Do not commit `google-services.json` or the Firebase service-account JSON.
 
 Firebase Storage is intended for photo uploads. The journal currently stores
 text notes through the API and leaves media upload for the Firebase setup step.

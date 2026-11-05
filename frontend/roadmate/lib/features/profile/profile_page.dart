@@ -77,6 +77,12 @@ class _ProfilePageState extends State<ProfilePage> {
         icon: const Icon(Icons.emergency),
         label: const Text('Demo SOS'),
       ),
+      if (FirebaseBridge.available)
+        TextButton.icon(
+          onPressed: () => FirebaseAuth.instance.signOut(),
+          icon: const Icon(Icons.logout),
+          label: const Text('Sign out'),
+        ),
     ],
   );
 }

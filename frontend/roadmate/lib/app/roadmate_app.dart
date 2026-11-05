@@ -13,7 +13,23 @@ class RoadMateApp extends StatelessWidget {
       useMaterial3: true,
       scaffoldBackgroundColor: const Color(0xfff4f7f6),
     ),
-    home: Shell(api: api),
+    home: ValueListenableBuilder<bool>(
+      valueListenable: FirebaseBridge.availability,
+      builder: (context, firebaseAvailable, _) {
+        if (!firebaseAvailable) return Shell(api: api);
+        return StreamBuilder<User?>(
+          stream: FirebaseAuth.instance.authStateChanges(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
+            }
+            return snapshot.data == null ? AuthPage(api: api) : Shell(api: api);
+          },
+        );
+      },
+    ),
   );
 }
 
