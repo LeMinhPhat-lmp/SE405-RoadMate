@@ -53,5 +53,22 @@ Set `Auth:UseDevAuth` to `false` when testing Firebase authentication. Keep it
 
 Do not commit `google-services.json` or the Firebase service-account JSON.
 
-Firebase Storage is intended for photo uploads. The journal currently stores
-text notes through the API and leaves media upload for the Firebase setup step.
+## MVP trip flow
+
+The current Android MVP includes route calculation through
+`/api/v1/routes/directions`, trip lifecycle through `/api/v1/trips`, GPS point
+and heartbeat uploads through `/api/v1/trips/{id}/points` and `/heartbeat`,
+tracking-link creation and sharing, long-press SOS, emergency-call shortcut,
+crash-alert demo, text notes, and camera photo memories uploaded to Firebase
+Storage before being saved through `/api/v1/trips/{id}/memories`.
+
+The backend needs a Goong API key for directions/place search and a Firebase
+Admin service-account key for push notifications. Location tracking requires
+granting Android location permission on the device. When Firebase is enabled,
+the app re-syncs a restored Firebase session with `/api/v1/auth/sync` before
+showing the authenticated shell.
+
+Telemetry points that cannot be uploaded immediately are persisted locally and
+retried when tracking resumes. The current tracker flushes on app lifecycle
+changes; a true Android foreground service is still required for guaranteed
+recording after the operating system suspends the Flutter process.

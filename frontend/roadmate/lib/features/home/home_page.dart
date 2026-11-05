@@ -74,8 +74,18 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 18),
               FilledButton.tonal(
-                onPressed: loading ? null : createTrip,
-                child: Text(loading ? 'Creating...' : 'Plan a trip'),
+                onPressed: loading
+                    ? null
+                    : () async {
+                        final id = await Navigator.push<String>(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => TripPlannerPage(api: widget.api),
+                          ),
+                        );
+                        if (id != null) widget.onTripCreated(id);
+                      },
+                child: const Text('Plan a trip'),
               ),
             ],
           ),

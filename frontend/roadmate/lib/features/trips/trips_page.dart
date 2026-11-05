@@ -1,8 +1,9 @@
 part of '../../main.dart';
 
 class TripsPage extends StatefulWidget {
-  const TripsPage({required this.api, super.key});
+  const TripsPage({required this.api, required this.runtime, super.key});
   final RoadMateApi api;
+  final TripRuntime runtime;
 
   @override
   State<TripsPage> createState() => _TripsPageState();
@@ -50,6 +51,7 @@ class _TripsPageState extends State<TripsPage> {
                   .map(
                     (trip) => TripCard(
                       api: widget.api,
+                      runtime: widget.runtime,
                       trip: trip,
                       onChanged: reload,
                     ),
@@ -66,11 +68,13 @@ class _TripsPageState extends State<TripsPage> {
 class TripCard extends StatefulWidget {
   const TripCard({
     required this.api,
+    required this.runtime,
     required this.trip,
     required this.onChanged,
     super.key,
   });
   final RoadMateApi api;
+  final TripRuntime runtime;
   final Map<String, dynamic> trip;
   final VoidCallback onChanged;
 
@@ -80,15 +84,26 @@ class TripCard extends StatefulWidget {
 
 class _TripCardState extends State<TripCard> {
   bool loading = false;
+  String? trackingUrl;
 
   Future<void> action() async {
     setState(() => loading = true);
     try {
       final id = widget.trip['id'] as String;
       if (widget.trip['status'] == 'active') {
+        await widget.runtime.stopTracking();
         await widget.api.finishTrip(id);
       } else {
         await widget.api.startTrip(id);
+        try {
+          await widget.runtime.startTracking(id);
+        } catch (exception) {
+          await widget.api.finishTrip(id);
+          rethrow;
+        }
+        final link = await widget.api.createTrackingLink(id);
+        trackingUrl =
+            link['url']?.toString() ?? link['trackingUrl']?.toString();
       }
       widget.onChanged();
     } catch (e) {
@@ -118,6 +133,11 @@ class _TripCardState extends State<TripCard> {
           onPressed: loading ? null : action,
           child: Text(active ? 'Finish' : 'Start'),
         ),
+        onTap: active && trackingUrl != null
+            ? () => SharePlus.instance.share(
+                ShareParams(text: 'Follow my RoadMate trip: $trackingUrl'),
+              )
+            : null,
       ),
     );
   }

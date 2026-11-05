@@ -10,6 +10,9 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   late Future<Map<String, dynamic>> profile;
+  Timer? sosTimer;
+  double sosProgress = 0;
+  bool sendingSos = false;
 
   @override
   void initState() {
@@ -77,6 +80,31 @@ class _ProfilePageState extends State<ProfilePage> {
         icon: const Icon(Icons.emergency),
         label: const Text('Demo SOS'),
       ),
+      const SizedBox(height: 8),
+      GestureDetector(
+        onLongPressStart: (_) => beginSosHold(),
+        onLongPressEnd: (_) => cancelSosHold(),
+        child: Card(
+          color: Colors.red.shade50,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              children: [
+                LinearProgressIndicator(
+                  value: sosProgress == 0 ? null : sosProgress,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  sendingSos
+                      ? 'Sending SOS...'
+                      : 'Press and hold 3 seconds for real SOS',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
       if (FirebaseBridge.available)
         TextButton.icon(
           onPressed: () => FirebaseAuth.instance.signOut(),
@@ -85,6 +113,79 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
     ],
   );
+
+  void beginSosHold() {
+    if (sendingSos) return;
+    sosProgress = 0;
+    const interval = Duration(milliseconds: 100);
+    var elapsed = 0;
+    sosTimer = Timer.periodic(interval, (_) {
+      elapsed += interval.inMilliseconds;
+      if (!mounted) return;
+      setState(() => sosProgress = elapsed / 3000);
+      if (elapsed >= 3000) {
+        sosTimer?.cancel();
+        sendSos();
+      }
+    });
+  }
+
+  void cancelSosHold() {
+    sosTimer?.cancel();
+    if (mounted && !sendingSos) setState(() => sosProgress = 0);
+  }
+
+  Future<void> sendSos() async {
+    setState(() => sendingSos = true);
+    try {
+      final trips = await widget.api.getTrips();
+      final active = trips.where((trip) => trip['status'] == 'active').toList();
+      if (active.isEmpty) throw Exception('Start an active trip first.');
+      await widget.api.createAlert(active.first['id'] as String, 'sos');
+      if (mounted) {
+        await showDialog<void>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('SOS sent'),
+            content: const Text(
+              'The RoadMate API received your SOS. Call emergency services if needed.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  unawaited(launchUrl(Uri.parse('tel:115')));
+                  if (context.mounted) Navigator.pop(context);
+                },
+                child: const Text('Call 115'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Done'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (exception) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$exception')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          sendingSos = false;
+          sosProgress = 0;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    sosTimer?.cancel();
+    super.dispose();
+  }
 }
 
 class CrashDialog extends StatefulWidget {
