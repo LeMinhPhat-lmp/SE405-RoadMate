@@ -5,3 +5,4 @@ public record StartTripResponse(TripDto Trip, string? TrackingUrl, List<string> 
 public record TripStatsDto(double DistanceKm, int MovingMin, int RestMin, int StopCount, double MaxSpeed, double AvgSpeed, double MaxAltitude, int AlertCount);
 public record TripSummaryDto(TripDto Trip, TripStatsDto Stats);
 public record RestRequest(int Minutes);
+public record ExtendReturnRequest(DateTime ExpectedReturnTime);

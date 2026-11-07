@@ -16,4 +16,8 @@ public static class PhoneNumber
     else return null;
     return VnPhone.IsMatch(s) ? s : null;
   }
+
+  /// <summary>"+84901234567" -> "+84******567" – dùng khi ghi log để không lộ số điện thoại.</summary>
+  public static string Mask(string? phone) =>
+    string.IsNullOrEmpty(phone) ? "" : phone.Length <= 6 ? new string('*', phone.Length) : phone[..3] + new string('*', phone.Length - 6) + phone[^3..];
 }

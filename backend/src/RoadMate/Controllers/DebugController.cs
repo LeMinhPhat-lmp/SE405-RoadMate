@@ -1,18 +1,13 @@
-using RoadMate.Infrastructure.Diagnostics;
-
 namespace RoadMate.Controllers;
 
-/// <summary>Chỉ bật khi Debug:EnableSimulator = true (dev).</summary>
-public class DebugController(IAlertService svc, IOptions<DebugOptions> options) : ApiControllerBase
+/// <summary>Chỉ hoạt động khi Debug:EnableSimulator = true (dev/demo); tắt thì trả 404.</summary>
+public class DebugController(IAlertSimulationService simulator) : ApiControllerBase
 {
-  /// <remarks>⚠ CHỈ DÙNG DEV/DEMO: cần Debug:EnableSimulator=true, tắt ở production. Gửi SMS/push thật nếu đã cấu hình.</remarks>
+  /// <remarks>
+  /// ⚠ CHỈ DÙNG DEV/DEMO. Mặc định dryRun=true: không gửi SMS/push thật. dryRun=false: chỉ gửi thật tới số trong Debug:AllowedPhones.
+  /// Cảnh báo giả lập được đánh dấu simulationMode nên các lần lặp/đóng sau đó cũng theo cùng chế độ.
+  /// </remarks>
   [HttpPost("debug/simulate-alert")]
-  public async Task<IActionResult> Simulate(SimulateAlertRequest req, CancellationToken ct)
-  {
-    if (!options.Value.EnableSimulator) return NotFound();
-    var type = string.IsNullOrWhiteSpace(req.Type) ? AlertType.Crash : req.Type;
-    var r = await svc.CreateAsync(UserId, req.TripId,
-      new CreateAlertRequest("sim-" + Guid.NewGuid().ToString("N"), type, req.Lat ?? 10.7769, req.Lng ?? 106.7009, 80), ct);
-    return HandleCreated(r);
-  }
+  public async Task<IActionResult> Simulate(SimulateAlertRequest req, CancellationToken ct) =>
+    HandleCreated(await simulator.SimulateAsync(UserId, req, ct));
 }

@@ -60,7 +60,7 @@ public class EmergencyContactService(IUnitOfWork uow, IContactNotifier notifier)
 
     var content = new NotificationContent($"[RoadMate] Tin nhắn thử: {user.Name} đã thêm bạn làm người liên hệ khẩn cấp.",
       "RoadMate: tin nhắn thử", new Dictionary<string, string> { ["type"] = "test" });
-    var deliveries = await notifier.NotifyAsync(Guid.Empty, new[] { c }, content, ct);   // tin thử: không lưu log
+    var deliveries = await notifier.NotifyAsync(Guid.Empty, new[] { c }, content, NotificationMode.Live, ct);   // tin thử: không lưu log
     return deliveries.Select(d => d.ToDto()).ToList();
   }
 }

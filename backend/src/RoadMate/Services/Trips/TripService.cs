@@ -31,7 +31,7 @@ public class TripService(IUnitOfWork uow, IOptions<TrackingOptions> tracking) : 
   {
     var trip = await uow.TripRepository.GetOwnedWithDetailsAsync(id, userId, ct);
     if (trip is null) return Errors.TripNotFound;
-    if (trip.Status != TripStatus.Draft) return Error.Conflict("TRIP_NOT_DRAFT", "Chỉ sửa được chuyến ở trạng thái nháp.");
+    if (trip.Status != TripStatus.Draft) return Errors.TripNotDraft;
     var valid = TripUpsertRequestValidator.Validate(req);
     if (valid.IsFailure) return valid.Error;
     var contactIds = await uow.EmergencyContactRepository.ResolveOwnedIdsAsync(userId, req.AlertContactIds, ct);

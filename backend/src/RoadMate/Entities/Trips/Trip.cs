@@ -26,6 +26,7 @@ public class Trip : FullAuditedEntity
   public string? TrackingToken { get; set; }
   public DateTime? TrackingExpiresAt { get; set; }
   public DateTime? RestUntil { get; set; }
+  public DateTime? LateReturnRemindedAt { get; set; }      // lúc server nhắc chủ chuyến về trễ; null = chưa nhắc
 
   public User? Owner { get; set; }
   public Group? Group { get; set; }
@@ -45,23 +46,31 @@ public class Trip : FullAuditedEntity
     Status = TripStatus.Active;
     StartTime = now;
     if (!LiveShare) return;
-    TrackingToken ??= TokenGenerator.NewTrackingToken();
+    TrackingToken ??= TokenGenerator.NewToken();
     TrackingExpiresAt = null;
   }
 
-  /// <summary>Active -> Finished: chốt giờ kết thúc, bỏ nghỉ chân, vô hiệu link theo dõi.</summary>
-  public void Finish(DateTime now)
+  /// <summary>Active -> Finished: chốt giờ kết thúc, bỏ nghỉ chân; link theo dõi còn dùng được thêm <paramref name="linkGrace"/> (để người thân thấy "đã về").</summary>
+  public void Finish(DateTime now, TimeSpan linkGrace)
   {
     Status = TripStatus.Finished;
     EndTime = now;
     RestUntil = null;
-    if (TrackingToken is not null) TrackingExpiresAt = now;
+    LateReturnRemindedAt = null;
+    if (TrackingToken is not null) TrackingExpiresAt = now + linkGrace;
+  }
+
+  /// <summary>Đổi giờ dự kiến về (chủ chuyến báo "vẫn đang đi") và reset trạng thái nhắc về trễ.</summary>
+  public void ExtendExpectedReturn(DateTime newTime)
+  {
+    ExpectedReturnTime = newTime;
+    LateReturnRemindedAt = null;
   }
 
   /// <summary>Tạo token mới (link cũ mất hiệu lực) và bật chia sẻ.</summary>
   public void RotateTrackingToken()
   {
-    TrackingToken = TokenGenerator.NewTrackingToken();
+    TrackingToken = TokenGenerator.NewToken();
     TrackingExpiresAt = null;
     LiveShare = true;
   }

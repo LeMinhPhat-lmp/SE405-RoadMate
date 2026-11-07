@@ -10,7 +10,7 @@ public static class TripMappers
     new LocationDto(t.OriginName, t.OriginLat, t.OriginLng), new LocationDto(t.DestName, t.DestLat, t.DestLng),
     t.Waypoints.OrderBy(w => w.Seq).Select(w => w.ToDto()).ToList(), t.PlannedPolyline, t.DistanceKm, t.EtaMinutes,
     t.AvoidHighway, t.AvoidToll, t.StartTime, t.EndTime, t.ExpectedReturnTime, t.IdleMinutes, t.CrashSensitivity, t.LiveShare,
-    TrackingUrl.Build(trackingBase, t.TrackingToken), t.RestUntil, t.Recipients.Select(r => r.ContactId).ToList());
+    TrackingUrl.Build(trackingBase, t.TrackingToken), t.RestUntil, t.Recipients.Select(r => r.ContactId).ToList(), t.GroupId);
 
   public static TripListItemDto ToListItem(this Trip t) => new(t.Id, t.Title, t.Status, t.OriginName, t.DestName, t.DistanceKm, t.StartTime, t.EndTime, t.CreatedAt);
 

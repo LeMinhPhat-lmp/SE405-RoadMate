@@ -4,5 +4,6 @@ namespace RoadMate.Services.Tracking;
 public interface ITelemetryService
 {
   Task<Result> AddPointsAsync(Guid userId, Guid tripId, AddPointsRequest req, CancellationToken ct);
-  Task<Result> HeartbeatAsync(Guid userId, Guid tripId, HeartbeatRequest req, CancellationToken ct);
+  /// <summary>Lưu vị trí/pin/mạng; nếu chuyến thuộc nhóm thì cập nhật vị trí lên nhóm và trả ảnh chụp nhóm (polling).</summary>
+  Task<Result<HeartbeatResponse>> HeartbeatAsync(Guid userId, Guid tripId, HeartbeatRequest req, CancellationToken ct);
 }
