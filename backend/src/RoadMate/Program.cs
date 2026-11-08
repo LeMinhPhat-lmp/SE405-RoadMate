@@ -3,6 +3,7 @@ using RoadMate.Infrastructure.Diagnostics;
 using RoadMate.Infrastructure.Logging;
 using RoadMate.Startup;
 using Serilog;
+using DotNetEnv;
 
 // Logger tạm để bắt lỗi xảy ra trước khi host dựng xong (thiếu cấu hình, lỗi DI…).
 Log.Logger = new LoggerConfiguration().WriteTo.Console().CreateBootstrapLogger();
@@ -10,8 +11,14 @@ Log.Logger = new LoggerConfiguration().WriteTo.Console().CreateBootstrapLogger()
 try
 {
   var builder = WebApplication.CreateBuilder(args);
+  var environment = builder.Environment.EnvironmentName;
   var cfg = builder.Configuration;
   var useDevAuth = builder.Environment.IsDevelopment() && cfg.GetValue<bool>("Auth:UseDevAuth");
+
+  var envFile = $".env.{environment}";
+  if (File.Exists(envFile))
+    Env.Load(envFile);
+  builder.Configuration.AddEnvironmentVariables();
 
   builder.AddAppLogging();
   builder.Services
