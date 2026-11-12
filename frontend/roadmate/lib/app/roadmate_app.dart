@@ -64,19 +64,38 @@ class AuthenticatedShell extends StatefulWidget {
 
 class _AuthenticatedShellState extends State<AuthenticatedShell> {
   Object? error;
+  StreamSubscription<String>? _tokenSubscription;
 
   @override
   void initState() {
     super.initState();
     unawaited(_syncUser());
+    _tokenSubscription = FirebaseBridge.tokenRefresh.listen((token) {
+      unawaited(_syncUser(fcmToken: token));
+    });
   }
 
-  Future<void> _syncUser() async {
+  @override
+  void dispose() {
+    unawaited(_tokenSubscription?.cancel());
+    super.dispose();
+  }
+
+  Future<void> _syncUser({String? fcmToken}) async {
     try {
+      String? token = fcmToken;
+      if (token == null) {
+        try {
+          token = await FirebaseBridge.requestPushToken();
+        } on Object catch (pushError) {
+          debugPrint('RoadMate could not register push notifications: $pushError');
+        }
+      }
       await widget.api.syncUser(
         widget.user.displayName?.trim().isNotEmpty == true
             ? widget.user.displayName!
             : widget.user.email ?? 'RoadMate rider',
+        fcmToken: token,
       );
     } catch (exception) {
       if (mounted) setState(() => error = exception);
