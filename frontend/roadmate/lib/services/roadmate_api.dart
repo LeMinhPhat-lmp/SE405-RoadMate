@@ -95,11 +95,11 @@ class RoadMateApi {
 
   void dispose() => _client.close();
 
-  Future<void> syncUser(String name) async {
+  Future<void> syncUser(String name, {String? fcmToken}) async {
     await _request(
       'POST',
       '/auth/sync',
-      body: {'name': name, 'fcmToken': null},
+      body: {'name': name, 'fcmToken': fcmToken},
     );
   }
 
