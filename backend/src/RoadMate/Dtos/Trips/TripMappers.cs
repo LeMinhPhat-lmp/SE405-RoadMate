@@ -27,7 +27,8 @@ public static class TripMappers
 
     t.Waypoints.Clear();
     int seq = 0;
+    // Do not assign Id here: new children added through a tracked navigation must be Added, see TASK 05.
     foreach (var w in r.Waypoints ?? new List<WaypointInput>())
-      t.Waypoints.Add(new TripWaypoint { Id = Guid.NewGuid(), TripId = t.Id, Seq = seq++, Name = w.Name, Lat = w.Lat, Lng = w.Lng, PlannedStayMin = w.PlannedStayMin });
+      t.Waypoints.Add(new TripWaypoint { Seq = seq++, Name = w.Name, Lat = w.Lat, Lng = w.Lng, PlannedStayMin = w.PlannedStayMin });
   }
 }
