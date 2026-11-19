@@ -81,11 +81,11 @@ public class TripLifecycleService(IUnitOfWork uow, IAlertService alerts, IOption
 
   public async Task<Result<TripDto>> ClearRestAsync(Guid userId, Guid id, CancellationToken ct)
   {
-    var trip = await uow.TripRepository.GetOwnedWithDetailsAsync(id, userId, ct);
-    if (trip is null) return Errors.TripNotFound;
-    trip.RestUntil = null;
+    var found = await uow.TripRepository.GetOwnedActiveAsync(id, userId, true, ct);
+    if (found.IsFailure) return found.Error;
+    found.Value.RestUntil = null;
     await uow.SaveChangesAsync(ct);
-    return trip.ToDto(tracking.Value.BaseUrl);
+    return found.Value.ToDto(tracking.Value.BaseUrl);
   }
 
   public async Task<Result<TripDto>> ExtendReturnAsync(Guid userId, Guid id, DateTime expectedReturnTime, CancellationToken ct)
