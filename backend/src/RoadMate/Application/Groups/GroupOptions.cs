@@ -1,4 +1,4 @@
-namespace RoadMate.Services.Groups;
+namespace RoadMate.Application.Groups;
 
 /// <summary>Cấu hình nhóm phượt (section "Groups").</summary>
 public class GroupOptions
