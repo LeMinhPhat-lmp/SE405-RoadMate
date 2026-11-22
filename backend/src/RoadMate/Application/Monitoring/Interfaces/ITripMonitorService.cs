@@ -1,4 +1,4 @@
-namespace RoadMate.Services.Monitoring;
+namespace RoadMate.Application.Monitoring.Interfaces;
 
 /// <summary>Giám sát các chuyến đang chạy: phát hiện "sự im lặng" mà chỉ server mới biết (mất sóng, về trễ).</summary>
 public interface ITripMonitorService

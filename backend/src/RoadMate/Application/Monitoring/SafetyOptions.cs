@@ -1,4 +1,4 @@
-namespace RoadMate.Services.Monitoring;
+namespace RoadMate.Application.Monitoring;
 
 /// <summary>Ngưỡng cho các cảnh báo do SERVER tự phát hiện (section "Safety").</summary>
 public class SafetyOptions
