@@ -1,4 +1,4 @@
-namespace RoadMate.Services.Weather;
+namespace RoadMate.Application.Weather;
 
 /// <summary>Mã thời tiết WMO (Open-Meteo) -> mô tả tiếng Việt (hàm thuần).</summary>
 public static class WeatherCodes

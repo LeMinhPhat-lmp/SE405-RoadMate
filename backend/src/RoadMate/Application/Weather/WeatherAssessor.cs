@@ -1,6 +1,6 @@
-using RoadMate.Infrastructure.Weather;
+using RoadMate.Application.Weather.DTOs.Responses;
 
-namespace RoadMate.Services.Weather;
+namespace RoadMate.Application.Weather;
 
 public static class WeatherAssessor
 {
@@ -10,10 +10,10 @@ public static class WeatherAssessor
   /// Cảnh báo thời tiết xấu trong <see cref="WeatherOptions.LookaheadHours"/> giờ tới (gồm cả hiện tại): mưa to, gió giật mạnh, giông.
   /// Mỗi loại chỉ báo một lần, ở thời điểm sớm nhất.
   /// </summary>
-  public static List<WeatherWarningDto> Assess(WeatherForecast f, WeatherOptions o, DateTime now)
+  public static List<WeatherWarningResponse> Assess(WeatherForecast f, WeatherOptions o, DateTime now)
   {
-    var warnings = new Dictionary<string, WeatherWarningDto>();
-    void Add(string code, string message, DateTime at) => warnings.TryAdd(code, new WeatherWarningDto(code, message, at));
+    var warnings = new Dictionary<string, WeatherWarningResponse>();
+    void Add(string code, string message, DateTime at) => warnings.TryAdd(code, new WeatherWarningResponse(code, message, at));
 
     Check(f.Current.Time, f.Current.PrecipitationMm, f.Current.GustKmh, f.Current.WeatherCode);
     var from = new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0, DateTimeKind.Utc);

@@ -1,11 +1,16 @@
 using System.Globalization;
-using RoadMate.Services.Maps;
 using Microsoft.Extensions.Caching.Memory;
-using RoadMate.Infrastructure.Weather;
+using RoadMate.Domain.Common;
+using RoadMate.Application.Abstractions.Persistence;
+using RoadMate.Application.Abstractions.Weather;
+using RoadMate.Application.Maps;
+using Microsoft.Extensions.Options;
+using RoadMate.Application.Weather.DTOs.Responses;
+using RoadMate.Application.Weather.Interfaces;
 
-namespace RoadMate.Services.Weather;
+namespace RoadMate.Application.Weather.Implements;
 
-public class WeatherService(IWeatherClient client, IMemoryCache cache, IOptions<WeatherOptions> options, IUnitOfWork uow,
+public class WeatherService(IWeatherClient client, IMemoryCache cache, IOptions<WeatherOptions> options, ITripRepository trips,
   TimeProvider clock, ILogger<WeatherService> log) : IWeatherService
 {
   public async Task<Result<WeatherForecast>> GetForecastAsync(double lat, double lng, CancellationToken ct)
@@ -18,19 +23,19 @@ public class WeatherService(IWeatherClient client, IMemoryCache cache, IOptions<
     return await cache.GetOrAddAsync(key, TimeSpan.FromMinutes(o.CacheMinutes), async () =>
     {
       var raw = await client.GetForecastAsync(gLat, gLng, ct);
-      return raw.IsFailure ? raw.Error : WeatherParser.Parse(raw.Value, clock.UtcNow());
+      return raw.IsFailure ? raw.Error : WeatherParser.Parse(raw.Value, clock.GetUtcNow().UtcDateTime);
     });
   }
 
-  public async Task<Result<WeatherDto>> GetAsync(double lat, double lng, CancellationToken ct)
+  public async Task<Result<WeatherResponse>> GetAsync(double lat, double lng, CancellationToken ct)
   {
     var forecast = await GetForecastAsync(lat, lng, ct);
     return forecast.IsFailure ? forecast.Error : ToDto(lat, lng, forecast.Value);
   }
 
-  public async Task<Result<TripWeatherDto>> GetForTripAsync(Guid userId, Guid tripId, CancellationToken ct)
+  public async Task<Result<TripWeatherResponse>> GetForTripAsync(Guid userId, Guid tripId, CancellationToken ct)
   {
-    var trip = await uow.TripRepository.GetOwnedWithDetailsAsync(tripId, userId, ct);
+    var trip = await trips.GetOwnedWithDetailsAsync(tripId, userId, ct);
     if (trip is null) return Errors.TripNotFound;
 
     var points = new List<(string Name, string Kind, double Lat, double Lng)> { (trip.OriginName, "origin", trip.OriginLat, trip.OriginLng) };
@@ -45,20 +50,20 @@ public class WeatherService(IWeatherClient client, IMemoryCache cache, IOptions<
       finally { gate.Release(); }
     }));
 
-    var ok = results.Where(r => r.Result.IsSuccess).Select(r => new TripWeatherPointDto(r.Point.Name, r.Point.Kind, r.Result.Value)).ToList();
+    var ok = results.Where(r => r.Result.IsSuccess).Select(r => new TripWeatherPointResponse(r.Point.Name, r.Point.Kind, r.Result.Value)).ToList();
     var failed = results.Length - ok.Count;
     if (ok.Count == 0) return results[0].Result.Error;      // không điểm nào lấy được -> báo lỗi của nhà cung cấp
     if (failed > 0) log.LogWarning("Thời tiết chuyến {TripId}: {Failed}/{Total} điểm không lấy được", tripId, failed, results.Length);
-    return new TripWeatherDto(trip.Id, ok, failed);
+    return new TripWeatherResponse(trip.Id, ok, failed);
   }
 
-  private WeatherDto ToDto(double lat, double lng, WeatherForecast f)
+  private WeatherResponse ToDto(double lat, double lng, WeatherForecast f)
   {
     var o = options.Value;
-    var now = clock.UtcNow();
+    var now = clock.GetUtcNow().UtcDateTime;
     var from = new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0, DateTimeKind.Utc);
     var hourly = f.Hourly.Where(h => h.Time >= from).Take(Math.Clamp(o.ForecastHours, 1, 48)).ToList();
-    return new WeatherDto(lat, lng, f.Current, hourly, WeatherAssessor.Assess(f, o, now));
+    return new WeatherResponse(lat, lng, f.Current, hourly, WeatherAssessor.Assess(f, o, now));
   }
 
   /// <summary>Làm tròn tới ô lưới gần nhất để nhiều điểm gần nhau dùng chung một dự báo.</summary>

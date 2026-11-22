@@ -1,6 +1,9 @@
 using System.Text.Json;
+using RoadMate.Domain.Common;
+using RoadMate.Application.Common;
+using RoadMate.Application.Weather.DTOs.Responses;
 
-namespace RoadMate.Services.Weather;
+namespace RoadMate.Application.Weather;
 
 /// <summary>Phân tích JSON Open-Meteo (hàm thuần, thiếu field thì dùng 0 thay vì ném exception).</summary>
 public static class WeatherParser
@@ -11,12 +14,12 @@ public static class WeatherParser
       return Error.External("WEATHER_PROVIDER_ERROR", "Dịch vụ thời tiết không trả dữ liệu hiện tại.");
 
     var code = (int)(c.GetDoubleOrNull("weather_code") ?? 0);
-    var current = new WeatherNowDto(
+    var current = new WeatherNowResponse(
       c.GetDoubleOrNull("time") is { } t ? FromUnix(t) : fallbackNow,
       c.GetDoubleOrNull("temperature_2m") ?? 0, c.GetDoubleOrNull("precipitation") ?? 0, code, WeatherCodes.Describe(code),
       c.GetDoubleOrNull("wind_speed_10m") ?? 0, c.GetDoubleOrNull("wind_gusts_10m") ?? 0);
 
-    var hourly = new List<WeatherHourDto>();
+    var hourly = new List<WeatherHourResponse>();
     if (root.GetOrNull("hourly") is { } h)
     {
       var times = Numbers(h, "time");
@@ -28,7 +31,7 @@ public static class WeatherParser
       {
         if (times[i] is not { } ts) continue;
         var hc = (int)(At(codes, i) ?? 0);
-        hourly.Add(new WeatherHourDto(FromUnix(ts), At(temps, i) ?? 0, At(rains, i) ?? 0, hc, WeatherCodes.Describe(hc), At(gusts, i) ?? 0));
+        hourly.Add(new WeatherHourResponse(FromUnix(ts), At(temps, i) ?? 0, At(rains, i) ?? 0, hc, WeatherCodes.Describe(hc), At(gusts, i) ?? 0));
       }
     }
     return new WeatherForecast(current, hourly.OrderBy(x => x.Time).ToList());
