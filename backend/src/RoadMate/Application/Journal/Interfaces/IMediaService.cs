@@ -1,4 +1,8 @@
-namespace RoadMate.Services.Journal;
+using RoadMate.Application.Journal.DTOs.Requests;
+using RoadMate.Application.Journal.DTOs.Responses;
+using RoadMate.Domain.Common;
+
+namespace RoadMate.Application.Journal.Interfaces;
 
 public interface IMediaService
 {

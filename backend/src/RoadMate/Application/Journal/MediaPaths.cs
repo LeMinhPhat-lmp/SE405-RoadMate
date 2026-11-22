@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace RoadMate.Services.Journal;
+namespace RoadMate.Application.Journal;
 
 /// <summary>
 /// Quy ước đường dẫn object: <c>users/{firebaseUid}/trips/{tripId}/{mediaId}{ext}</c>. Server là bên DUY NHẤT sinh đường dẫn,

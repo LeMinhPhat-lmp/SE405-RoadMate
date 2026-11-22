@@ -1,15 +1,20 @@
-using RoadMate.Infrastructure.Storage;
+using Microsoft.Extensions.Options;
+using RoadMate.Application.Abstractions.Persistence;
+using RoadMate.Application.Abstractions.Storage;
+using RoadMate.Application.Journal.DTOs.Requests;
+using RoadMate.Application.Journal.DTOs.Responses;
+using RoadMate.Application.Journal.Interfaces;
+using RoadMate.Domain.Common;
 
-namespace RoadMate.Services.Journal;
+namespace RoadMate.Application.Journal.Implements;
 
-public class MediaService(IUnitOfWork uow, IMediaStorage storage, IOptions<StorageOptions> options) : IMediaService
+public class MediaService(ITripRepository trips, IUserRepository users, IMemoryRepository memories, IMediaStorage storage, IOptions<StorageOptions> options) : IMediaService
 {
   public async Task<Result<UploadUrlResponse>> CreateUploadUrlAsync(Guid userId, Guid tripId, UploadUrlRequest req, CancellationToken ct)
   {
-    if (await uow.TripRepository.GetOwnedAsync(tripId, userId, ct) is null) return Errors.TripNotFound;
-    var user = await uow.UserRepository.GetByIdAsync(userId, false, ct);
+    if (await trips.GetOwnedAsync(tripId, userId, ct) is null) return Errors.TripNotFound;
+    var user = await users.GetByIdAsync(userId, ct);
     if (user is null) return Errors.UserNotSynced;
-
     var kind = (req.Kind ?? "").Trim().ToLowerInvariant();
     if (!MediaPolicy.IsMediaKind(kind)) return Error.Validation("INVALID_KIND", "kind phải là photo|video.");
     var contentType = (req.ContentType ?? "").Trim().ToLowerInvariant();
@@ -17,7 +22,6 @@ public class MediaService(IUnitOfWork uow, IMediaStorage storage, IOptions<Stora
       return Error.Validation("UNSUPPORTED_CONTENT_TYPE", $"contentType '{contentType}' không được hỗ trợ cho {kind}.");
     var max = MediaPolicy.MaxBytes(kind, options.Value);
     if (req.SizeBytes <= 0 || req.SizeBytes > max) return Error.Validation("FILE_TOO_LARGE", $"Dung lượng phải từ 1 đến {max} byte.");
-
     var path = MediaPaths.Build(user.FirebaseUid, tripId, extension);
     var signed = storage.CreateUploadUrl(path, contentType, max);
     if (signed.IsFailure) return signed.Error;
@@ -26,7 +30,7 @@ public class MediaService(IUnitOfWork uow, IMediaStorage storage, IOptions<Stora
 
   public async Task<Result<MediaUrlResponse>> GetDownloadUrlAsync(Guid userId, Guid memoryId, CancellationToken ct)
   {
-    var memory = await uow.MemoryRepository.GetOwnedAsync(memoryId, userId, ct);
+    var memory = await memories.GetOwnedAsync(memoryId, userId, ct);
     if (memory is null) return Errors.MemoryNotFound;
     if (string.IsNullOrEmpty(memory.MediaPath)) return Error.NotFound("NO_MEDIA", "Kỷ niệm này không có ảnh/video.");
     var signed = storage.CreateDownloadUrl(memory.MediaPath);
