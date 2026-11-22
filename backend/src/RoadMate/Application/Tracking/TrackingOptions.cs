@@ -1,4 +1,4 @@
-namespace RoadMate.Services.Tracking;
+namespace RoadMate.Application.Tracking;
 
 public class TrackingOptions
 {

@@ -1,4 +1,8 @@
-namespace RoadMate.Services.Tracking;
+using RoadMate.Application.Tracking.DTOs.Requests;
+using RoadMate.Application.Tracking.DTOs.Responses;
+using RoadMate.Domain.Common;
+
+namespace RoadMate.Application.Tracking.Interfaces;
 
 /// <summary>Nhận dữ liệu từ thiết bị trong chuyến: điểm GPS theo lô và heartbeat (vị trí/pin/mạng).</summary>
 public interface ITelemetryService
