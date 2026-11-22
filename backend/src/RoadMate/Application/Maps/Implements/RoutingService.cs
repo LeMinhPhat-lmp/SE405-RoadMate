@@ -1,10 +1,18 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using RoadMate.Infrastructure.Maps;
+using RoadMate.Domain.Common;
+using RoadMate.Application.Common;
+using RoadMate.Application.Shared;
+using System.Text;
+using Microsoft.Extensions.Options;
+using RoadMate.Application.Maps.DTOs.Responses;
+using RoadMate.Application.Maps.DTOs.Requests;
+using RoadMate.Application.Abstractions.Maps;
+using RoadMate.Application.Maps.Interfaces;
 
-namespace RoadMate.Services.Maps;
+namespace RoadMate.Application.Maps.Implements;
 
-public partial class RoutingService(IGoongClient goong, IOptions<GoongOptions> options) : IRoutingService
+public partial class RoutingService(IMapGateway goong, IOptions<MapOptions> options) : IRoutingService
 {
   public const int MaxWaypoints = 20;
   public const int MaxMatrixOrigins = 10;
@@ -14,11 +22,6 @@ public partial class RoutingService(IGoongClient goong, IOptions<GoongOptions> o
   // không có từ khoá tương ứng trong hướng dẫn rẽ. Đây là heuristic dựa trên chữ, nên luôn kèm cảnh báo khi không tránh được.
   [GeneratedRegex(@"cao\s*tốc|cao\s*toc", RegexOptions.IgnoreCase)] private static partial Regex HighwayRegex();
   [GeneratedRegex(@"thu\s*phí|thu\s*phi|\bBOT\b", RegexOptions.IgnoreCase)] private static partial Regex TollRegex();
-
-  private sealed record RouteCandidate(List<(double Lat, double Lng)> Points, double DistanceM, int DurationS,
-    List<StepDto> Steps, string? StartAddress, string? EndAddress, bool HasHighway, bool HasToll, List<string> ProviderWarnings);
-
-  private sealed record LegResult(RouteCandidate Route, List<RouteWarningDto> Warnings);
 
   public async Task<Result<DirectionsResponse>> DirectionsAsync(DirectionsRequest req, CancellationToken ct)
   {
@@ -48,9 +51,9 @@ public partial class RoutingService(IGoongClient goong, IOptions<GoongOptions> o
     if (failed is not null) return failed.Error;
 
     var all = new List<(double Lat, double Lng)>();
-    var steps = new List<StepDto>();
-    var legDtos = new List<LegDto>();
-    var warnings = new List<RouteWarningDto>();
+    var steps = new List<StepResponse>();
+    var legDtos = new List<LegResponse>();
+    var warnings = new List<RouteWarningResponse>();
     double distM = 0; int durS = 0;
     foreach (var l in legs.Select(x => x.Value))
     {
@@ -59,12 +62,12 @@ public partial class RoutingService(IGoongClient goong, IOptions<GoongOptions> o
       if (all.Count > 0 && decoded.Count > 0) decoded.RemoveAt(0);   // điểm đầu chặng sau trùng điểm cuối chặng trước
       all.AddRange(decoded);
       steps.AddRange(r.Steps);
-      legDtos.Add(new LegDto(Math.Round(r.DistanceM / 1000, 2), (int)Math.Ceiling(r.DurationS / 60.0), r.StartAddress, r.EndAddress));
+      legDtos.Add(new LegResponse(Math.Round(r.DistanceM / 1000, 2), (int)Math.Ceiling(r.DurationS / 60.0), r.StartAddress, r.EndAddress));
       warnings.AddRange(l.Warnings);
       distM += r.DistanceM; durS += r.DurationS;
     }
 
-    BoundsDto? bounds = all.Count == 0 ? null : new BoundsDto(
+    BoundsResponse? bounds = all.Count == 0 ? null : new BoundsResponse(
       new LatLng(all.Max(p => p.Lat), all.Max(p => p.Lng)), new LatLng(all.Min(p => p.Lat), all.Min(p => p.Lng)));
     return new DirectionsResponse(PolylineCodec.Encode(all), Math.Round(distM / 1000, 2), (int)Math.Ceiling(durS / 60.0), steps, legDtos, bounds, warnings);
   }
@@ -72,7 +75,7 @@ public partial class RoutingService(IGoongClient goong, IOptions<GoongOptions> o
   private async Task<Result<LegResult>> RouteLegAsync(LatLng a, LatLng b, string vehicle, bool avoidHighway, bool avoidToll, int legIndex, int lastLegIndex, CancellationToken ct)
   {
     var wantsAvoid = avoidHighway || avoidToll;
-    var q = new GoongQuery().AddLatLng("origin", a.Lat, a.Lng).AddLatLng("destination", b.Lat, b.Lng)
+    var q = new MapQuery().AddLatLng("origin", a.Lat, a.Lng).AddLatLng("destination", b.Lat, b.Lng)
       .Add("vehicle", vehicle).AddIf(wantsAvoid, "alternatives", "true");
     var r = await goong.GetAsync("v2/direction", q, ct);
     if (r.IsFailure) return r.Error;
@@ -81,7 +84,7 @@ public partial class RoutingService(IGoongClient goong, IOptions<GoongOptions> o
     if (candidates.Count == 0) return Error.NotFound("NO_ROUTE", "Không tìm được đường đi giữa các điểm.");
 
     var chosen = candidates[0];
-    var warnings = new List<RouteWarningDto>();
+    var warnings = new List<RouteWarningResponse>();
     if (wantsAvoid)
     {
       var ok = candidates.FirstOrDefault(c => !(avoidHighway && c.HasHighway) && !(avoidToll && c.HasToll));
@@ -108,7 +111,7 @@ public partial class RoutingService(IGoongClient goong, IOptions<GoongOptions> o
     if (points.Count == 0) return null;
 
     double dist = 0; int dur = 0; string? startAddr = null, endAddr = null;
-    var steps = new List<StepDto>();
+    var steps = new List<StepResponse>();
     var text = new StringBuilder(route.GetStringOrNull("summary"));
     foreach (var leg in route.GetArray("legs"))
     {
@@ -121,7 +124,7 @@ public partial class RoutingService(IGoongClient goong, IOptions<GoongOptions> o
         var instruction = TextHelper.StripHtmlTags(st.GetStringOrNull("html_instructions") ?? "").Normalize(NormalizationForm.FormC);
         text.Append(' ').Append(instruction);
         var start = st.GetOrNull("start_location");
-        steps.Add(new StepDto(instruction, st.GetStringOrNull("maneuver"),
+        steps.Add(new StepResponse(instruction, st.GetStringOrNull("maneuver"),
           (int)(st.GetPath("distance")?.GetDoubleOrNull("value") ?? 0), (int)(st.GetPath("duration")?.GetDoubleOrNull("value") ?? 0),
           start?.GetDoubleOrNull("lat"), start?.GetDoubleOrNull("lng")));
       }
@@ -146,11 +149,11 @@ public partial class RoutingService(IGoongClient goong, IOptions<GoongOptions> o
     var vehicle = VehicleMap.Resolve(req.Vehicle, options.Value);
     if (vehicle.IsFailure) return vehicle.Error;
 
-    var q = new GoongQuery().AddLatLngList("origins", origins, '|').AddLatLngList("destinations", dests, '|').Add("vehicle", vehicle.Value);
+    var q = new MapQuery().AddLatLngList("origins", origins, '|').AddLatLngList("destinations", dests, '|').Add("vehicle", vehicle.Value);
     var r = await goong.GetAsync("v2/distancematrix", q, ct);
     if (r.IsFailure) return r.Error;
 
-    var rows = r.Value.GetArray("rows").Select(row => row.GetArray("elements").Select(e => new MatrixElementDto(
+    var rows = r.Value.GetArray("rows").Select(row => row.GetArray("elements").Select(e => new MatrixElementResponse(
       e.GetStringOrNull("status") ?? "UNKNOWN",
       e.GetPath("distance")?.GetDoubleOrNull("value") is { } d ? (int)Math.Round(d) : null,
       e.GetPath("duration")?.GetDoubleOrNull("value") is { } s ? (int)Math.Round(s) : null)).ToList()).ToList();

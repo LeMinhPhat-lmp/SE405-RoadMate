@@ -1,10 +1,15 @@
 using System.Text.Json;
 using Microsoft.Extensions.Caching.Memory;
-using RoadMate.Infrastructure.Maps;
+using RoadMate.Domain.Common;
+using RoadMate.Application.Common;
+using Microsoft.Extensions.Options;
+using RoadMate.Application.Maps.DTOs.Responses;
+using RoadMate.Application.Maps.Interfaces;
+using RoadMate.Application.Abstractions.Maps;
 
-namespace RoadMate.Services.Maps;
+namespace RoadMate.Application.Maps.Implements;
 
-public class PlaceService(IGoongClient goong, IMemoryCache cache, IOptions<GoongOptions> options) : IPlaceService
+public class PlaceService(IMapGateway goong, IMemoryCache cache, IOptions<MapOptions> options) : IPlaceService
 {
   public const int MaxQueryLength = 200;
   public const int MaxLimit = 10;
@@ -24,7 +29,7 @@ public class PlaceService(IGoongClient goong, IMemoryCache cache, IOptions<Goong
     var key = $"ac:{q.ToLowerInvariant()}:{lat?.ToString("F3")}:{lng?.ToString("F3")}:{n}:{withDistance}";
     return await cache.GetOrAddAsync<List<PlacePrediction>>(key, TimeSpan.FromSeconds(o.AutocompleteCacheSeconds), async () =>
     {
-      var query = new GoongQuery().Add("input", q).Add("limit", n)
+      var query = new MapQuery().Add("input", q).Add("limit", n)
         .AddIf(o.IncludeDeprecatedAdministrativeUnit, "has_deprecated_administrative_unit", "true");
       if (lat is not null) { query.AddLatLng("location", lat.Value, lng!.Value); if (withDistance) query.AddLatLng("origin", lat.Value, lng.Value); }
       var r = await goong.GetAsync("v2/place/autocomplete", query, ct);
@@ -39,7 +44,7 @@ public class PlaceService(IGoongClient goong, IMemoryCache cache, IOptions<Goong
     var o = options.Value;
     return await cache.GetOrAddAsync<PlaceDetail>($"pd:{placeId}", TimeSpan.FromMinutes(o.DetailCacheMinutes), async () =>
     {
-      var query = new GoongQuery().Add("place_id", placeId).AddIf(o.IncludeDeprecatedAdministrativeUnit, "has_deprecated_administrative_unit", "true");
+      var query = new MapQuery().Add("place_id", placeId).AddIf(o.IncludeDeprecatedAdministrativeUnit, "has_deprecated_administrative_unit", "true");
       var r = await goong.GetAsync("v2/place/detail", query, ct);
       if (r.IsFailure) return r.Error;
       if (r.Value.GetOrNull("result") is not { ValueKind: JsonValueKind.Object } res ||
@@ -61,7 +66,7 @@ public class PlaceService(IGoongClient goong, IMemoryCache cache, IOptions<Goong
     var o = options.Value;
     return await cache.GetOrAddAsync<List<PlacePrediction>>($"pc:{parentPlaceId}", TimeSpan.FromMinutes(o.DetailCacheMinutes), async () =>
     {
-      var query = new GoongQuery().Add("parent_id", parentPlaceId).AddIf(o.IncludeDeprecatedAdministrativeUnit, "has_deprecated_administrative_unit", "true");
+      var query = new MapQuery().Add("parent_id", parentPlaceId).AddIf(o.IncludeDeprecatedAdministrativeUnit, "has_deprecated_administrative_unit", "true");
       var r = await goong.GetAsync("v2/place/children", query, ct);
       return r.IsFailure ? r.Error : Result.Success(ParsePredictions(r.Value));
     });

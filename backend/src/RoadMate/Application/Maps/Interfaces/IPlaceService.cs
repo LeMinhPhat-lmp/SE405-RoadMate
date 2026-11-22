@@ -1,4 +1,7 @@
-namespace RoadMate.Services.Maps;
+using RoadMate.Application.Maps.DTOs.Responses;
+using RoadMate.Domain.Common;
+
+namespace RoadMate.Application.Maps.Interfaces;
 
 public interface IPlaceService
 {

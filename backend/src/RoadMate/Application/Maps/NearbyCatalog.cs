@@ -1,4 +1,4 @@
-namespace RoadMate.Services.Maps;
+namespace RoadMate.Application.Maps;
 
 /// <summary>Loại tiện ích dọc đường → từ khoá tìm kiếm tiếng Việt (Goong không có API tìm theo loại POI trong bộ doc V2 hiện có).</summary>
 public static class NearbyCatalog

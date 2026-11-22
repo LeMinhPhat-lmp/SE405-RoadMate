@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Caching.Memory;
+using RoadMate.Domain.Common;
 
-namespace RoadMate.Services.Maps;
+namespace RoadMate.Application.Maps;
 
 public static class MapCacheExtensions
 {

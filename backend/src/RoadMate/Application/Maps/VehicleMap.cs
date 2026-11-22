@@ -1,11 +1,11 @@
-using RoadMate.Infrastructure.Maps;
+using RoadMate.Domain.Common;
 
-namespace RoadMate.Services.Maps;
+namespace RoadMate.Application.Maps;
 
 /// <summary>Đổi loại xe của RoadMate sang giá trị <c>vehicle</c> của Goong (cấu hình được).</summary>
 public static class VehicleMap
 {
-  public static Result<string> Resolve(string? vehicle, GoongOptions o)
+  public static Result<string> Resolve(string? vehicle, MapOptions o)
   {
     switch ((vehicle ?? "motorbike").Trim().ToLowerInvariant())
     {

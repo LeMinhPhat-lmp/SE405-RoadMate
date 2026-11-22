@@ -1,10 +1,15 @@
 using System.Text.Json;
 using Microsoft.Extensions.Caching.Memory;
-using RoadMate.Infrastructure.Maps;
+using RoadMate.Domain.Common;
+using RoadMate.Application.Common;
+using Microsoft.Extensions.Options;
+using RoadMate.Application.Maps.DTOs.Responses;
+using RoadMate.Application.Maps.Interfaces;
+using RoadMate.Application.Abstractions.Maps;
 
-namespace RoadMate.Services.Maps;
+namespace RoadMate.Application.Maps.Implements;
 
-public class GeocodingService(IGoongClient goong, IMemoryCache cache, IOptions<GoongOptions> options) : IGeocodingService
+public class GeocodingService(IMapGateway goong, IMemoryCache cache, IOptions<MapOptions> options) : IGeocodingService
 {
   public async Task<Result<ReverseResult>> ReverseAsync(double lat, double lng, CancellationToken ct)
   {
@@ -12,7 +17,7 @@ public class GeocodingService(IGoongClient goong, IMemoryCache cache, IOptions<G
     var o = options.Value;
     return await cache.GetOrAddAsync<ReverseResult>($"rev:{lat:F4}:{lng:F4}", TimeSpan.FromMinutes(o.ReverseCacheMinutes), async () =>
     {
-      var q = new GoongQuery().AddLatLng("latlng", lat, lng).Add("limit", 1)
+      var q = new MapQuery().AddLatLng("latlng", lat, lng).Add("limit", 1)
         .AddIf(o.IncludeDeprecatedAdministrativeUnit, "has_deprecated_administrative_unit", "true");
       var r = await goong.GetAsync("v2/geocode", q, ct);
       if (r.IsFailure) return r.Error;
@@ -30,7 +35,7 @@ public class GeocodingService(IGoongClient goong, IMemoryCache cache, IOptions<G
     if (address.Length > PlaceService.MaxQueryLength) return Error.Validation("ADDRESS_TOO_LONG", $"Địa chỉ tối đa {PlaceService.MaxQueryLength} ký tự.");
     var n = Math.Clamp(limit ?? 5, 1, PlaceService.MaxLimit);
     var o = options.Value;
-    var q = new GoongQuery().Add("address", address).Add("limit", n)
+    var q = new MapQuery().Add("address", address).Add("limit", n)
       .AddIf(o.IncludeDeprecatedAdministrativeUnit, "has_deprecated_administrative_unit", "true");
     var r = await goong.GetAsync("v2/geocode", q, ct);
     if (r.IsFailure) return r.Error;
@@ -42,7 +47,7 @@ public class GeocodingService(IGoongClient goong, IMemoryCache cache, IOptions<G
   {
     if (!Geo.ValidLatLng(lat, lng)) return Errors.InvalidLocation;
     var o = options.Value;
-    var q = new GoongQuery().AddLatLng("latlng", lat, lng).AddIf(o.IncludeDeprecatedAdministrativeUnit, "has_deprecated_administrative_unit", "true");
+    var q = new MapQuery().AddLatLng("latlng", lat, lng).AddIf(o.IncludeDeprecatedAdministrativeUnit, "has_deprecated_administrative_unit", "true");
     var r = await goong.GetAsync("v2/geocode/street", q, ct);
     if (r.IsFailure) return r.Error;
     var first = r.Value.GetArray("results").Cast<JsonElement?>().FirstOrDefault();
