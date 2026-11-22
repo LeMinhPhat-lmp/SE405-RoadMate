@@ -1,6 +1,9 @@
 using Google;
 using Google.Apis.Auth.OAuth2;
 using Google.Cloud.Storage.V1;
+using RoadMate.Domain.Common;
+using RoadMate.Application.Abstractions.Storage;
+using Microsoft.Extensions.Options;
 
 namespace RoadMate.Infrastructure.Storage;
 
@@ -36,7 +39,7 @@ public class GcsMediaStorage(ServiceAccountCredential credential, StorageClient 
 
       var url = _signer.Sign(template, UrlSigner.Options.FromDuration(duration).WithSigningVersion(SigningVersion.V4));
       log.LogInformation("Đã ký URL upload {ObjectPath} ({ContentType}, tối đa {MaxBytes}B, hạn {Minutes} phút)", objectPath, contentType, maxBytes, duration.TotalMinutes);
-      return new SignedUpload(url, headers, clock.UtcNow().Add(duration));
+      return new SignedUpload(url, headers, clock.GetUtcNow().UtcDateTime.Add(duration));
     }
     catch (Exception ex) when (ex is not OperationCanceledException)
     {
@@ -53,7 +56,7 @@ public class GcsMediaStorage(ServiceAccountCredential credential, StorageClient 
     {
       var template = UrlSigner.RequestTemplate.FromBucket(o.Bucket).WithObjectName(objectPath).WithHttpMethod(HttpMethod.Get);
       var url = _signer.Sign(template, UrlSigner.Options.FromDuration(duration).WithSigningVersion(SigningVersion.V4));
-      return new SignedUrl(url, clock.UtcNow().Add(duration));
+      return new SignedUrl(url, clock.GetUtcNow().UtcDateTime.Add(duration));
     }
     catch (Exception ex) when (ex is not OperationCanceledException)
     {

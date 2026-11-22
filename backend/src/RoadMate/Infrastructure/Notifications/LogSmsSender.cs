@@ -1,7 +1,10 @@
+using RoadMate.Domain.ValueObjects;
+using RoadMate.Domain.Common;
+
 namespace RoadMate.Infrastructure.Notifications;
 
 /// <summary>Mặc định (dev): chỉ ghi log, KHÔNG gửi SMS thật.</summary>
-public class LogSmsSender(ILogger<LogSmsSender> log) : ISmsSender
+public class LogSmsSender(ILogger<LogSmsSender> log) : ISmsProvider
 {
   public Task<Result<string>> SendAsync(string phone, string message, CancellationToken ct = default)
   {

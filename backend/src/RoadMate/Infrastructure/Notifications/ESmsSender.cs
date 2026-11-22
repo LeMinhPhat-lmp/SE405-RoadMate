@@ -1,5 +1,8 @@
-using System.Net.Http.Json;
+using RoadMate.Domain.ValueObjects;
 using System.Text.Json;
+using RoadMate.Domain.Common;
+using RoadMate.Application.Common;
+using Microsoft.Extensions.Options;
 
 namespace RoadMate.Infrastructure.Notifications;
 
@@ -7,7 +10,7 @@ namespace RoadMate.Infrastructure.Notifications;
 /// eSMS.vn. CHƯA KIỂM CHỨNG với tài khoản thật: mã thành công đang giả định là CodeResult = "100"
 /// (xem docs/V3_NOTES.md). Không bao giờ log ApiKey/SecretKey hay nội dung tin; số điện thoại luôn được che.
 /// </summary>
-public class ESmsSender(HttpClient http, IOptions<SmsOptions> options, ILogger<ESmsSender> log) : ISmsSender
+public class ESmsSender(HttpClient http, IOptions<SmsOptions> options, ILogger<ESmsSender> log) : ISmsProvider
 {
   public async Task<Result<string>> SendAsync(string phone, string message, CancellationToken ct = default)
   {
@@ -15,8 +18,14 @@ public class ESmsSender(HttpClient http, IOptions<SmsOptions> options, ILogger<E
     var local = phone.StartsWith("+84") ? "0" + phone[3..] : phone;
     var body = new
     {
-      ApiKey = o.ApiKey, SecretKey = o.SecretKey, Phone = local, Content = message,
-      SmsType = o.SmsType, Brandname = o.Brandname, IsUnicode = "0", Sandbox = o.Sandbox ? "1" : "0"
+      ApiKey = o.ApiKey,
+      SecretKey = o.SecretKey,
+      Phone = local,
+      Content = message,
+      SmsType = o.SmsType,
+      Brandname = o.Brandname,
+      IsUnicode = "0",
+      Sandbox = o.Sandbox ? "1" : "0"
     };
 
     using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);

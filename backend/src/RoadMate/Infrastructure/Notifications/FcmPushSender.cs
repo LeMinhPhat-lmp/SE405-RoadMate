@@ -1,8 +1,9 @@
 using FirebaseAdmin.Messaging;
+using RoadMate.Domain.Common;
 
 namespace RoadMate.Infrastructure.Notifications;
 
-public class FcmPushSender(ILogger<FcmPushSender> log) : IPushSender
+public class FcmPushSender(ILogger<FcmPushSender> log) : IPushProvider
 {
   /// <summary>Notification channel khai báo ở app Flutter (độ ưu tiên cao, âm khẩn cấp). Chỉ dùng cho push cảnh báo.</summary>
   public const string EmergencyChannelId = "roadmate_emergency";

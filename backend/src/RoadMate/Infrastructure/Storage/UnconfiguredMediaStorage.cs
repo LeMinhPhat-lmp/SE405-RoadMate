@@ -1,3 +1,6 @@
+using RoadMate.Domain.Common;
+using RoadMate.Application.Abstractions.Storage;
+
 namespace RoadMate.Infrastructure.Storage;
 
 /// <summary>Dùng khi chưa nạp được service account: mọi thao tác media trả 503 STORAGE_NOT_CONFIGURED.</summary>

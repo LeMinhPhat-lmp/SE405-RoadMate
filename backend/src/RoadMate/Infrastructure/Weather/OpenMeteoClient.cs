@@ -1,4 +1,9 @@
 using System.Text.Json;
+using RoadMate.Domain.Common;
+using RoadMate.Application.Abstractions.Weather;
+using RoadMate.Application.Common;
+using RoadMate.Application.Weather;
+using Microsoft.Extensions.Options;
 
 namespace RoadMate.Infrastructure.Weather;
 
