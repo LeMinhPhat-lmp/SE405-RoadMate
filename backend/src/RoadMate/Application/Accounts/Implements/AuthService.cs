@@ -37,13 +37,13 @@ public class AuthService(IUserRepository users, IEmergencyContactRepository cont
 
   public async Task<Result<UserResponse>> GetMeAsync(Guid userId, CancellationToken ct)
   {
-    var u = await users.GetByIdAsync(userId, ct);
+    var u = await users.GetByIdAsync(userId, cancellationToken: ct);
     return u is null ? Errors.UserNotSynced : u.ToResponse();
   }
 
   public async Task<Result<UserResponse>> UpdateMeAsync(Guid userId, UpdateProfileRequest r, CancellationToken ct)
   {
-    var u = await users.GetByIdAsync(userId, ct);
+    var u = await users.GetByIdAsync(userId, trackChanges: true, ct);
     if (u is null) return Errors.UserNotSynced;
     var updated = u.UpdateProfile(r.ToUpdate());
     if (updated.IsFailure) return updated.Error;

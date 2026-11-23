@@ -13,15 +13,13 @@ public class MediaService(ITripRepository trips, IUserRepository users, IMemoryR
   public async Task<Result<UploadUrlResponse>> CreateUploadUrlAsync(Guid userId, Guid tripId, UploadUrlRequest req, CancellationToken ct)
   {
     if (await trips.GetOwnedAsync(tripId, userId, ct) is null) return Errors.TripNotFound;
-    var user = await users.GetByIdAsync(userId, ct);
+    var user = await users.GetByIdAsync(userId, cancellationToken: ct);
     if (user is null) return Errors.UserNotSynced;
     var kind = (req.Kind ?? "").Trim().ToLowerInvariant();
-    if (!MediaPolicy.IsMediaKind(kind)) return Error.Validation("INVALID_KIND", "kind phải là photo|video.");
     var contentType = (req.ContentType ?? "").Trim().ToLowerInvariant();
     if (!MediaPolicy.TryGetExtension(kind, contentType, out var extension))
       return Error.Validation("UNSUPPORTED_CONTENT_TYPE", $"contentType '{contentType}' không được hỗ trợ cho {kind}.");
     var max = MediaPolicy.MaxBytes(kind, options.Value);
-    if (req.SizeBytes <= 0 || req.SizeBytes > max) return Error.Validation("FILE_TOO_LARGE", $"Dung lượng phải từ 1 đến {max} byte.");
     var path = MediaPaths.Build(user.FirebaseUid, tripId, extension);
     var signed = storage.CreateUploadUrl(path, contentType, max);
     if (signed.IsFailure) return signed.Error;

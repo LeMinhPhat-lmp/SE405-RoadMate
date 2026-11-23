@@ -9,6 +9,10 @@ public class TripsController(ITripService svc) : ApiControllerBase
   [HttpGet("trips")]
   public async Task<IActionResult> List([FromQuery] string? status, CancellationToken ct) => Handle(await svc.ListAsync(UserId, status, ct));
 
+  [HttpGet("trips/paged")]
+  public async Task<IActionResult> ListPaged([FromQuery] string? status, [FromQuery] string? cursor, [FromQuery] int? limit, CancellationToken ct) =>
+    Handle(await svc.ListPageAsync(UserId, status, cursor, limit, ct));
+
   [HttpPost("trips")]
   public async Task<IActionResult> Create(TripUpsertRequest req, CancellationToken ct) => HandleCreated(await svc.CreateAsync(UserId, req, ct));
 

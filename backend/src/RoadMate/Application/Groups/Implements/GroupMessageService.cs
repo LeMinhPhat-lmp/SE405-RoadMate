@@ -5,6 +5,7 @@ using RoadMate.Application.Common;
 using RoadMate.Application.Groups.DTOs.Requests;
 using RoadMate.Application.Groups.DTOs.Responses;
 using RoadMate.Application.Groups.Interfaces;
+using RoadMate.Application.Shared;
 using RoadMate.Domain.Common;
 using RoadMate.Domain.Groups;
 
@@ -38,5 +39,14 @@ public class GroupMessageService(IGroupRepository groups, IGroupMessageRepositor
     var group = await groups.GetWithMembersAsync(groupId, ct);
     if (group is null || !group.IsMember(userId)) return GroupErrors.NotFound;
     return (await read.ListMessagesAsync(groupId, since.ToUtcOffset(), options.Value.MaxMessagesPerPoll, ct)).ToList();
+  }
+
+  public async Task<Result<CursorPageResponse<GroupMessageResponse>>> ListMessagesPageAsync(Guid userId, Guid groupId, string? cursor, int? limit, CancellationToken ct)
+  {
+    if (!CursorPosition.TryDecode(cursor, out var after)) return CursorPagination.InvalidCursor;
+    var group = await groups.GetWithMembersAsync(groupId, ct);
+    if (group is null || !group.IsMember(userId)) return GroupErrors.NotFound;
+    var page = await read.ListMessagesPageAsync(groupId, after, CursorPagination.NormalizeLimit(limit), ct);
+    return new CursorPageResponse<GroupMessageResponse>(page.Items, page.NextCursor, page.HasMore);
   }
 }

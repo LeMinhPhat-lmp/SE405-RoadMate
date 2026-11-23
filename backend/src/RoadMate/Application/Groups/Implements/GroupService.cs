@@ -18,7 +18,7 @@ public class GroupService(IGroupRepository groups, IUserRepository users, ITripR
 
   public async Task<Result<GroupResponse>> CreateAsync(Guid userId, CreateGroupRequest req, CancellationToken ct)
   {
-    if (await users.GetByIdAsync(userId, ct) is null) return Errors.UserNotSynced;
+    if (await users.GetByIdAsync(userId, cancellationToken: ct) is null) return Errors.UserNotSynced;
     var now = clock.GetUtcNow();
     for (var attempt = 1; attempt <= MaxCodeAttempts; attempt++)
     {
@@ -44,7 +44,7 @@ public class GroupService(IGroupRepository groups, IUserRepository users, ITripR
     if (code is null) return GroupErrors.InvalidCode;
     var group = await groups.GetByCodeAsync(code, ct);
     if (group is null) return GroupErrors.CodeNotFound;
-    if (!group.IsMember(userId) && await users.GetByIdAsync(userId, ct) is null) return Errors.UserNotSynced;
+    if (!group.IsMember(userId) && await users.GetByIdAsync(userId, cancellationToken: ct) is null) return Errors.UserNotSynced;
     var joined = group.Join(userId, clock.GetUtcNow(), Max);
     if (joined.IsFailure) return joined.Error;
     try { await uow.SaveChangesAsync(ct); }

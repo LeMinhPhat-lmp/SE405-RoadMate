@@ -9,6 +9,10 @@ public class MemoriesController(IMemoryService svc) : ApiControllerBase
   [HttpGet("trips/{id:guid}/memories")]
   public async Task<IActionResult> List(Guid id, CancellationToken ct) => Handle(await svc.ListAsync(UserId, id, ct));
 
+  [HttpGet("trips/{id:guid}/memories/paged")]
+  public async Task<IActionResult> ListPaged(Guid id, [FromQuery] string? cursor, [FromQuery] int? limit, CancellationToken ct) =>
+    Handle(await svc.ListPageAsync(UserId, id, cursor, limit, ct));
+
   /// <remarks>Ảnh/video: xin URL upload ở POST trips/{id}/media/upload-url, upload xong gửi mediaPath ở đây. Server kiểm tra mediaPath thuộc đúng chuyến và (mặc định) file đã tồn tại.</remarks>
   [HttpPost("trips/{id:guid}/memories")]
   public async Task<IActionResult> Add(Guid id, MemoryRequest req, CancellationToken ct) => HandleCreated(await svc.AddAsync(UserId, id, req, ct));

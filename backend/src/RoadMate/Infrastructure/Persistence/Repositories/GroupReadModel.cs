@@ -17,7 +17,8 @@ public class GroupReadModel(AppDbContext db, IOptions<GroupOptions> options) : I
   public async Task<IReadOnlyList<GroupListItemResponse>> ListForUserAsync(Guid userId, CancellationToken ct = default)
   {
     var groups = await db.Groups.AsNoTracking().Include(g => g.Members).AsSplitQuery()
-      .Where(g => g.Members.Any(m => m.UserId == userId) && g.Status != GroupStatus.Closed).OrderByDescending(g => g.CreatedAt).ToListAsync(ct);
+      .Where(g => g.Members.Any(m => m.UserId == userId) && g.Status != GroupStatus.Closed)
+      .OrderByDescending(g => g.CreatedAt).ThenByDescending(g => g.Id).ToListAsync(ct);
     return groups.Select(g => new GroupListItemResponse(g.Id, g.Name, EnumWire.ToWire(g.Status), EnumWire.ToWire(g.Members.First(m => m.UserId == userId).Role),
       g.Members.Count, g.DepartAt.ToWire())).ToList();
   }
@@ -40,7 +41,24 @@ public class GroupReadModel(AppDbContext db, IOptions<GroupOptions> options) : I
   {
     var q = db.GroupMessages.AsNoTracking().Include(m => m.Sender).Where(m => m.GroupId == groupId);
     if (since is { } s) q = q.Where(m => m.CreatedAt > s);
-    return (await q.OrderBy(m => m.CreatedAt).Take(max).ToListAsync(ct)).Select(m => m.ToDto()).ToList();
+    return (await q.OrderBy(m => m.CreatedAt).ThenBy(m => m.Id).Take(max).ToListAsync(ct)).Select(m => m.ToDto()).ToList();
+  }
+
+  public async Task<CursorPage<GroupMessageResponse>> ListMessagesPageAsync(Guid groupId, CursorPosition? after, int limit, CancellationToken ct = default)
+  {
+    var take = CursorPagination.NormalizeLimit(limit);
+    IQueryable<GroupMessage> q = db.GroupMessages.AsNoTracking().Include(m => m.Sender).Where(m => m.GroupId == groupId);
+
+    if (after is not null)
+    {
+      var afterAt = after.SortAt;
+      var afterId = after.Id;
+      q = q.Where(m => m.CreatedAt > afterAt || (m.CreatedAt == afterAt && m.Id.CompareTo(afterId) > 0));
+    }
+
+    var rows = await q.OrderBy(m => m.CreatedAt).ThenBy(m => m.Id).Take(take + 1).ToListAsync(ct);
+    var page = CursorPagination.ToPage(rows, take, m => new CursorPosition(m.CreatedAt, m.Id));
+    return new CursorPage<GroupMessageResponse>(page.Items.Select(m => m.ToDto()).ToList(), page.NextCursor, page.HasMore);
   }
 
   private Task<Group?> Load(Guid id, CancellationToken ct) =>

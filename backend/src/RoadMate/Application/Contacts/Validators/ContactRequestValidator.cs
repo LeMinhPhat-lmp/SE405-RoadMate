@@ -1,15 +1,21 @@
-using RoadMate.Application.Abstractions.Messaging;
+using FluentValidation;
+using RoadMate.Application.Common;
 using RoadMate.Application.Contacts.DTOs.Requests;
 using RoadMate.Domain.Common;
 using RoadMate.Domain.ValueObjects;
 
 namespace RoadMate.Application.Contacts.Validators;
 
-public sealed class ContactRequestValidator : IRequestValidator<ContactRequest>
+public sealed class ContactRequestValidator : AbstractValidator<ContactRequest>
 {
-  public Result Validate(ContactRequest req, DateTimeOffset now)
+  public ContactRequestValidator()
   {
-    if (string.IsNullOrWhiteSpace(req.Name)) return Errors.InvalidName;
-    return PhoneNumber.ParseVietnam(req.Phone).IsFailure ? Errors.InvalidPhone : Result.Success();
+    RuleFor(x => x.Name)
+      .NotEmpty()
+      .WithError(Errors.InvalidName);
+
+    RuleFor(x => x.Phone)
+      .Must(p => PhoneNumber.ParseVietnam(p).IsSuccess)
+      .WithError(Errors.InvalidPhone);
   }
 }

@@ -12,7 +12,7 @@ public class MediaReferenceChecker(IUserRepository users, IMediaStorage storage,
   public async Task<Result> CheckAsync(Guid userId, Guid tripId, MemoryType type, string? mediaPath, string? currentPath, CancellationToken ct)
   {
     if (type == MemoryType.Note || string.IsNullOrEmpty(mediaPath) || mediaPath == currentPath) return Result.Success();
-    var user = await users.GetByIdAsync(userId, ct);
+    var user = await users.GetByIdAsync(userId, cancellationToken: ct);
     if (user is null) return Errors.UserNotSynced;
     if (!MediaPaths.IsOwnedBy(mediaPath, user.FirebaseUid, tripId))
     {

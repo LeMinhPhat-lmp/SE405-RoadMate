@@ -17,6 +17,10 @@ public class AlertsController(IAlertService svc, AlertLifecycleService lifecycle
   [HttpGet("trips/{tripId:guid}/alerts")]
   public async Task<IActionResult> List(Guid tripId, CancellationToken ct) => Handle(await svc.ListAsync(UserId, tripId, ct));
 
+  [HttpGet("trips/{tripId:guid}/alerts/paged")]
+  public async Task<IActionResult> ListPaged(Guid tripId, [FromQuery] string? cursor, [FromQuery] int? limit, CancellationToken ct) =>
+    Handle(await svc.ListPageAsync(UserId, tripId, cursor, limit, ct));
+
   [HttpPost("alerts/{id:guid}/locations")]
   public async Task<IActionResult> Location(Guid id, AlertLocationRequest req, CancellationToken ct) => Handle(await lifecycle.UpdateLocationAsync(UserId, id, req, ct));
 

@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Options;
 using RoadMate.Application.Abstractions.Persistence;
+using RoadMate.Application.Common;
+using RoadMate.Application.Shared;
 using RoadMate.Application.Tracking;
 using RoadMate.Application.Trips.DTOs.Requests;
 using RoadMate.Application.Trips.DTOs.Responses;
@@ -18,6 +20,16 @@ public class TripService(ITripRepository trips, IEmergencyContactRepository cont
     if (status is not null && EnumWire.TryParse<TripStatus>(status, out var s)) filter = s;
     else if (status is not null) return new List<TripListItemResponse>();       // unknown status: legacy returned an empty list
     return (await trips.ListByOwnerAsync(userId, filter, ct)).Select(t => t.ToListItem()).ToList();
+  }
+
+  public async Task<Result<CursorPageResponse<TripListItemResponse>>> ListPageAsync(Guid userId, string? status, string? cursor, int? limit, CancellationToken ct)
+  {
+    if (!CursorPosition.TryDecode(cursor, out var after)) return CursorPagination.InvalidCursor;
+    TripStatus? filter = null;
+    if (status is not null && EnumWire.TryParse<TripStatus>(status, out var s)) filter = s;
+    else if (status is not null) return new CursorPageResponse<TripListItemResponse>([], null, false);
+    var page = await trips.ListByOwnerPageAsync(userId, filter, after, CursorPagination.NormalizeLimit(limit), ct);
+    return new CursorPageResponse<TripListItemResponse>(page.Items.Select(t => t.ToListItem()).ToList(), page.NextCursor, page.HasMore);
   }
 
   public async Task<Result<TripResponse>> GetAsync(Guid userId, Guid id, CancellationToken ct)

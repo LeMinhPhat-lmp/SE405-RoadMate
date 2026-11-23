@@ -32,6 +32,7 @@ global using RoadMate.Application.Maps;
 global using RoadMate.Application.Maps.DTOs.Requests;
 global using RoadMate.Application.Maps.DTOs.Responses;
 global using RoadMate.Application.Maps.Interfaces;
+global using RoadMate.Application.Maps.Validators;
 global using RoadMate.Application.Monitoring;
 global using RoadMate.Application.Monitoring.Interfaces;
 global using RoadMate.Application.Tracking;

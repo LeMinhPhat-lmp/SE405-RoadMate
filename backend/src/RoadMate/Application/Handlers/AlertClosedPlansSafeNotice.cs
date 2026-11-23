@@ -14,7 +14,7 @@ public sealed class AlertClosedPlansSafeNotice(IAlertRepository alerts, INotific
     if (!e.WasNotified) return;
     // Only tell relatives "safe" if they were really told about the alert (something was actually sent, not just planned or simulated).
     if (!(await deliveries.ListByAlertAsync(e.AlertId, ct)).Any(d => d.Status == DeliveryStatus.Sent && d.Kind != NotificationKind.Closed)) return;
-    var alert = await alerts.GetByIdAsync(e.AlertId, ct);
+    var alert = await alerts.GetByIdAsync(e.AlertId, cancellationToken: ct);
     if (alert is not null) await planner.PlanAsync(alert, NotificationKind.Closed, 0, e.OccurredAt, ct);
   }
 }

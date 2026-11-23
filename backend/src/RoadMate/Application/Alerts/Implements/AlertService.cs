@@ -3,6 +3,8 @@ using RoadMate.Application.Alerts.DTOs.Requests;
 using RoadMate.Application.Alerts.DTOs.Responses;
 using RoadMate.Application.Alerts.Interfaces;
 using RoadMate.Application.Alerts.Mappers;
+using RoadMate.Application.Common;
+using RoadMate.Application.Shared;
 using RoadMate.Application.Trips;
 using RoadMate.Domain.Alerts;
 using RoadMate.Domain.Common;
@@ -31,6 +33,15 @@ public class AlertService(ITripRepository trips, IAlertRaiser raiser, IAlertRead
     var trip = await trips.GetOwnedAsync(tripId, userId, ct);
     if (trip is null) return Errors.TripNotFound;
     return (await read.ListForTripAsync(tripId, ct)).ToList();
+  }
+
+  public async Task<Result<CursorPageResponse<AlertResponse>>> ListPageAsync(Guid userId, Guid tripId, string? cursor, int? limit, CancellationToken ct)
+  {
+    if (!CursorPosition.TryDecode(cursor, out var after)) return CursorPagination.InvalidCursor;
+    var trip = await trips.GetOwnedAsync(tripId, userId, ct);
+    if (trip is null) return Errors.TripNotFound;
+    var page = await read.ListForTripPageAsync(tripId, after, CursorPagination.NormalizeLimit(limit), ct);
+    return new CursorPageResponse<AlertResponse>(page.Items, page.NextCursor, page.HasMore);
   }
 
   private async Task<AlertResponse> ExistingAsync(Alert a, CancellationToken ct) =>

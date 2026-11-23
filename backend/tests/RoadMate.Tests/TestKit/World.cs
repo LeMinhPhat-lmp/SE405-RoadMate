@@ -157,31 +157,55 @@ public sealed class World
     public void DiscardChanges() { }
   }
 
+  private static List<T> Slice<T>(IEnumerable<T> source, int? skip, int? take) where T : Entity
+  {
+    IEnumerable<T> q = source.OrderBy(e => e.Id);
+    if (skip is > 0) q = q.Skip(skip.Value);
+    if (take is > 0) q = q.Take(take.Value);
+    return q.ToList();
+  }
+
   private sealed class FakeUsers(World w) : IUserRepository
   {
-    public Task<User?> GetByIdAsync(Guid id, CancellationToken ct = default) => Task.FromResult(w.Users.FirstOrDefault(u => u.Id == id));
+    private IEnumerable<User> Active => w.Users.Where(u => !u.IsDeleted);
+    public Task<User?> GetByIdAsync(Guid id, bool trackChanges = false, CancellationToken ct = default) => Task.FromResult(Active.FirstOrDefault(u => u.Id == id));
+    public Task<List<User>> ListEntitiesAsync(int? skip, int? take, bool trackChanges = false, CancellationToken ct = default) => Task.FromResult(Slice(Active, skip, take));
     public Task AddAsync(User u, CancellationToken ct = default) { w.Users.Add(u); return Task.CompletedTask; }
+    public Task AddRangeAsync(IEnumerable<User> entities, CancellationToken ct = default) { w.Users.AddRange(entities); return Task.CompletedTask; }
+    public void Update(User entity) { }
+    public void Remove(User entity) => w.Users.Remove(entity);
+    public void RemoveRange(IEnumerable<User> entities) { foreach (var e in entities.ToList()) w.Users.Remove(e); }
     public void Delete(User u) => u.SoftDelete(Guid.Empty, w.Clock.Now);
-    public Task<User?> GetWithContactsAsync(Guid id, CancellationToken ct = default) => GetByIdAsync(id, ct);
-    public Task<User?> GetByFirebaseUidAsync(string uid, CancellationToken ct = default) => Task.FromResult(w.Users.FirstOrDefault(u => u.FirebaseUid == uid));
-    public Task<Guid?> GetIdByFirebaseUidAsync(string uid, CancellationToken ct = default) => Task.FromResult(w.Users.FirstOrDefault(u => u.FirebaseUid == uid)?.Id);
-    public Task<Guid?> FindIdByVerifiedPhoneAsync(string phone, CancellationToken ct = default) => Task.FromResult(w.Users.FirstOrDefault(u => u.Phone == phone)?.Id);
+    public void DeleteRange(IEnumerable<User> entities) { foreach (var e in entities) e.SoftDelete(Guid.Empty, w.Clock.Now); }
+    public Task<User?> GetWithContactsAsync(Guid id, CancellationToken ct = default) => GetByIdAsync(id, true, ct);
+    public Task<User?> GetByFirebaseUidAsync(string uid, CancellationToken ct = default) => Task.FromResult(Active.FirstOrDefault(u => u.FirebaseUid == uid));
+    public Task<Guid?> GetIdByFirebaseUidAsync(string uid, CancellationToken ct = default) => Task.FromResult(Active.FirstOrDefault(u => u.FirebaseUid == uid)?.Id);
+    public Task<Guid?> FindIdByVerifiedPhoneAsync(string phone, CancellationToken ct = default) => Task.FromResult(Active.FirstOrDefault(u => u.Phone == phone)?.Id);
     public Task<IReadOnlyDictionary<Guid, string>> GetFcmTokensAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct = default) =>
-      Task.FromResult<IReadOnlyDictionary<Guid, string>>(w.Users.Where(u => ids.Contains(u.Id) && !string.IsNullOrEmpty(u.FcmToken)).ToDictionary(u => u.Id, u => u.FcmToken!));
+      Task.FromResult<IReadOnlyDictionary<Guid, string>>(Active.Where(u => ids.Contains(u.Id) && !string.IsNullOrEmpty(u.FcmToken)).ToDictionary(u => u.Id, u => u.FcmToken!));
   }
 
   private sealed class FakeContacts(World w) : IEmergencyContactRepository
   {
     private IEnumerable<EmergencyContact> All => w.Users.SelectMany(u => u.Contacts).Where(c => !c.IsDeleted);
+    public Task<EmergencyContact?> GetByIdAsync(Guid id, bool trackChanges = false, CancellationToken ct = default) => Task.FromResult(All.FirstOrDefault(c => c.Id == id));
+    public Task<List<EmergencyContact>> ListEntitiesAsync(int? skip, int? take, bool trackChanges = false, CancellationToken ct = default) => Task.FromResult(Slice(All, skip, take));
+    public Task AddAsync(EmergencyContact entity, CancellationToken ct = default) => Task.CompletedTask;
+    public Task AddRangeAsync(IEnumerable<EmergencyContact> entities, CancellationToken ct = default) => Task.CompletedTask;
+    public void Update(EmergencyContact entity) { }
+    public void Remove(EmergencyContact entity) { }
+    public void RemoveRange(IEnumerable<EmergencyContact> entities) { }
+    public void Delete(EmergencyContact entity) => entity.SoftDelete(Guid.Empty, w.Clock.Now);
+    public void DeleteRange(IEnumerable<EmergencyContact> entities) { foreach (var e in entities) e.SoftDelete(Guid.Empty, w.Clock.Now); }
     public Task<IReadOnlyList<EmergencyContact>> ListForUserAsync(Guid userId, CancellationToken ct = default) =>
-      Task.FromResult<IReadOnlyList<EmergencyContact>>(All.Where(c => c.UserId == userId).OrderBy(c => c.Priority).ToList());
+      Task.FromResult<IReadOnlyList<EmergencyContact>>(All.Where(c => c.UserId == userId).OrderBy(c => c.Priority).ThenBy(c => c.CreatedAt).ThenBy(c => c.Id).ToList());
     public Task<EmergencyContact?> GetOwnedAsync(Guid userId, Guid id, CancellationToken ct = default) => Task.FromResult(All.FirstOrDefault(c => c.UserId == userId && c.Id == id));
     public Task<IReadOnlyList<Guid>> FilterOwnedIdsAsync(Guid userId, IReadOnlyCollection<Guid> ids, CancellationToken ct = default) =>
       Task.FromResult<IReadOnlyList<Guid>>(All.Where(c => c.UserId == userId && ids.Contains(c.Id)).Select(c => c.Id).ToList());
     public Task<IReadOnlyList<AlertRecipient>> GetAlertRecipientsAsync(Guid tripId, Guid ownerId, CancellationToken ct = default)
     {
       var trip = w.Trips.First(t => t.Id == tripId);
-      var mine = All.Where(c => c.UserId == ownerId).OrderBy(c => c.Priority).ToList();
+      var mine = All.Where(c => c.UserId == ownerId).OrderBy(c => c.Priority).ThenBy(c => c.Id).ToList();
       var chosen = mine.Where(c => trip.Recipients.Any(r => r.ContactId == c.Id)).ToList();
       var list = (chosen.Count > 0 ? chosen : mine).Select(c => new AlertRecipient(c.Id, c.Name, c.Phone, c.LinkedUserId,
         c.LinkedUserId is { } l ? w.Users.FirstOrDefault(u => u.Id == l)?.FcmToken : null)).ToList();
@@ -196,18 +220,34 @@ public sealed class World
 
   private sealed class FakeTrips(World w) : ITripRepository
   {
-    public Task<Trip?> GetByIdAsync(Guid id, CancellationToken ct = default) => Task.FromResult(w.Trips.FirstOrDefault(t => t.Id == id && !t.IsDeleted));
+    private IEnumerable<Trip> Active => w.Trips.Where(t => !t.IsDeleted);
+    public Task<Trip?> GetByIdAsync(Guid id, bool trackChanges = false, CancellationToken ct = default) => Task.FromResult(Active.FirstOrDefault(t => t.Id == id));
+    public Task<List<Trip>> ListEntitiesAsync(int? skip, int? take, bool trackChanges = false, CancellationToken ct = default) => Task.FromResult(Slice(Active, skip, take));
     public Task AddAsync(Trip t, CancellationToken ct = default) { w.Trips.Add(t); return Task.CompletedTask; }
+    public Task AddRangeAsync(IEnumerable<Trip> entities, CancellationToken ct = default) { w.Trips.AddRange(entities); return Task.CompletedTask; }
+    public void Update(Trip entity) { }
+    public void Remove(Trip entity) => w.Trips.Remove(entity);
+    public void RemoveRange(IEnumerable<Trip> entities) { foreach (var e in entities.ToList()) w.Trips.Remove(e); }
     public void Delete(Trip t) => t.SoftDelete(Guid.Empty, w.Clock.Now);
-    public Task<Trip?> GetOwnedAsync(Guid id, Guid owner, CancellationToken ct = default) => Task.FromResult(w.Trips.FirstOrDefault(t => t.Id == id && t.OwnerId == owner && !t.IsDeleted));
+    public void DeleteRange(IEnumerable<Trip> entities) { foreach (var e in entities) e.SoftDelete(Guid.Empty, w.Clock.Now); }
+    public Task<Trip?> GetOwnedAsync(Guid id, Guid owner, CancellationToken ct = default) => Task.FromResult(Active.FirstOrDefault(t => t.Id == id && t.OwnerId == owner));
     public Task<Trip?> GetOwnedWithDetailsAsync(Guid id, Guid owner, CancellationToken ct = default) => GetOwnedAsync(id, owner, ct);
     public Task<IReadOnlyList<Trip>> ListByOwnerAsync(Guid owner, TripStatus? status, CancellationToken ct = default) =>
-      Task.FromResult<IReadOnlyList<Trip>>(w.Trips.Where(t => t.OwnerId == owner && !t.IsDeleted && (status is null || t.Status == status)).ToList());
-    public Task<bool> HasActiveAsync(Guid owner, CancellationToken ct = default) => Task.FromResult(w.Trips.Any(t => t.OwnerId == owner && t.Status == TripStatus.Active && !t.IsDeleted));
+      Task.FromResult<IReadOnlyList<Trip>>(Active.Where(t => t.OwnerId == owner && (status is null || t.Status == status))
+        .OrderByDescending(t => t.CreatedAt).ThenByDescending(t => t.Id).ToList());
+    public Task<CursorPage<Trip>> ListByOwnerPageAsync(Guid owner, TripStatus? status, CursorPosition? after, int limit, CancellationToken ct = default)
+    {
+      var take = CursorPagination.NormalizeLimit(limit);
+      var q = Active.Where(t => t.OwnerId == owner && (status is null || t.Status == status));
+      if (after is not null) q = q.Where(t => t.CreatedAt < after.SortAt || (t.CreatedAt == after.SortAt && t.Id.CompareTo(after.Id) < 0));
+      var rows = q.OrderByDescending(t => t.CreatedAt).ThenByDescending(t => t.Id).Take(take + 1).ToList();
+      return Task.FromResult(CursorPagination.ToPage(rows, take, t => new CursorPosition(t.CreatedAt, t.Id)));
+    }
+    public Task<bool> HasActiveAsync(Guid owner, CancellationToken ct = default) => Task.FromResult(Active.Any(t => t.OwnerId == owner && t.Status == TripStatus.Active));
     public Task<IReadOnlyList<Trip>> ListActiveForMonitoringAsync(CancellationToken ct = default) =>
-      Task.FromResult<IReadOnlyList<Trip>>(w.Trips.Where(t => t.Status == TripStatus.Active && !t.IsDeleted).ToList());
+      Task.FromResult<IReadOnlyList<Trip>>(Active.Where(t => t.Status == TripStatus.Active).ToList());
     public Task<IReadOnlyList<Trip>> ListInGroupAsync(Guid user, Guid group, CancellationToken ct = default) =>
-      Task.FromResult<IReadOnlyList<Trip>>(w.Trips.Where(t => t.OwnerId == user && t.GroupId == group).ToList());
+      Task.FromResult<IReadOnlyList<Trip>>(Active.Where(t => t.OwnerId == user && t.GroupId == group).ToList());
   }
 
   private sealed class FakeTelemetry(World w) : ITripTelemetryWriter, ITripPointReader
@@ -236,8 +276,13 @@ public sealed class World
 
   private sealed class FakeAlerts(World w) : IAlertRepository
   {
-    public Task<Alert?> GetByIdAsync(Guid id, CancellationToken ct = default) => Task.FromResult(w.Alerts.FirstOrDefault(a => a.Id == id));
+    public Task<Alert?> GetByIdAsync(Guid id, bool trackChanges = false, CancellationToken ct = default) => Task.FromResult(w.Alerts.FirstOrDefault(a => a.Id == id));
+    public Task<List<Alert>> ListEntitiesAsync(int? skip, int? take, bool trackChanges = false, CancellationToken ct = default) => Task.FromResult(Slice(w.Alerts, skip, take));
     public Task AddAsync(Alert a, CancellationToken ct = default) { w.Alerts.Add(a); return Task.CompletedTask; }
+    public Task AddRangeAsync(IEnumerable<Alert> entities, CancellationToken ct = default) { w.Alerts.AddRange(entities); return Task.CompletedTask; }
+    public void Update(Alert entity) { }
+    public void Remove(Alert entity) => w.Alerts.Remove(entity);
+    public void RemoveRange(IEnumerable<Alert> entities) { foreach (var e in entities.ToList()) w.Alerts.Remove(e); }
     public Task<Alert?> GetOwnedAsync(Guid id, Guid user, CancellationToken ct = default) => Task.FromResult(w.Alerts.FirstOrDefault(a => a.Id == id && a.UserId == user));
     public Task<Alert?> GetByClientIdAsync(string c, CancellationToken ct = default) => Task.FromResult(w.Alerts.FirstOrDefault(a => a.ClientId == c));
     public Task<IReadOnlyList<Alert>> ListOpenByTripAsync(Guid trip, AlertType? type, CancellationToken ct = default) =>
@@ -251,7 +296,13 @@ public sealed class World
 
   private sealed class FakeAcks(World w) : IAlertAckRepository
   {
+    public Task<AlertAck?> GetByIdAsync(Guid id, bool trackChanges = false, CancellationToken ct = default) => Task.FromResult(w.Acks.FirstOrDefault(a => a.Id == id));
+    public Task<List<AlertAck>> ListEntitiesAsync(int? skip, int? take, bool trackChanges = false, CancellationToken ct = default) => Task.FromResult(Slice(w.Acks, skip, take));
+    public Task AddAsync(AlertAck entity, CancellationToken ct = default) { w.Acks.Add(entity); return Task.CompletedTask; }
     public Task AddRangeAsync(IEnumerable<AlertAck> acks, CancellationToken ct = default) { w.Acks.AddRange(acks); return Task.CompletedTask; }
+    public void Update(AlertAck entity) { }
+    public void Remove(AlertAck entity) => w.Acks.Remove(entity);
+    public void RemoveRange(IEnumerable<AlertAck> entities) { foreach (var e in entities.ToList()) w.Acks.Remove(e); }
     public Task<IReadOnlyList<AlertAck>> ListByAlertAsync(Guid alert, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<AlertAck>>(w.Acks.Where(a => a.AlertId == alert).ToList());
     public Task<AlertAck?> GetByTokenAsync(string token, CancellationToken ct = default)
     {
@@ -266,7 +317,13 @@ public sealed class World
 
   private sealed class FakeDeliveries(World w) : INotificationDeliveryRepository
   {
+    public Task<NotificationDelivery?> GetByIdAsync(Guid id, bool trackChanges = false, CancellationToken ct = default) => Task.FromResult(w.Deliveries.FirstOrDefault(d => d.Id == id));
+    public Task<List<NotificationDelivery>> ListEntitiesAsync(int? skip, int? take, bool trackChanges = false, CancellationToken ct = default) => Task.FromResult(Slice(w.Deliveries, skip, take));
+    public Task AddAsync(NotificationDelivery entity, CancellationToken ct = default) { w.Deliveries.Add(entity); return Task.CompletedTask; }
     public Task AddRangeAsync(IEnumerable<NotificationDelivery> d, CancellationToken ct = default) { w.Deliveries.AddRange(d); return Task.CompletedTask; }
+    public void Update(NotificationDelivery entity) { }
+    public void Remove(NotificationDelivery entity) => w.Deliveries.Remove(entity);
+    public void RemoveRange(IEnumerable<NotificationDelivery> entities) { foreach (var e in entities.ToList()) w.Deliveries.Remove(e); }
     public Task<bool> ExistsAsync(Guid alert, NotificationKind kind, int seq, CancellationToken ct = default) => Task.FromResult(w.Deliveries.Any(d => d.AlertId == alert && d.Kind == kind && d.Sequence == seq));
     public Task<IReadOnlyList<NotificationDelivery>> ClaimDueAsync(string worker, DateTimeOffset now, TimeSpan lease, int take, CancellationToken ct = default)
     {
@@ -290,29 +347,63 @@ public sealed class World
   private sealed class FakeAlertRead(World w) : IAlertReadModel
   {
     public Task<IReadOnlyList<AlertResponse>> ListForTripAsync(Guid trip, CancellationToken ct = default) =>
-      Task.FromResult<IReadOnlyList<AlertResponse>>(w.Alerts.Where(a => a.TripId == trip).Select(a => a.ToResponse(w.Deliveries.Where(d => d.AlertId == a.Id), w.Acks.Where(k => k.AlertId == a.Id))).ToList());
+      Task.FromResult<IReadOnlyList<AlertResponse>>(w.Alerts.Where(a => a.TripId == trip).OrderByDescending(a => a.CreatedAt).ThenByDescending(a => a.Id)
+        .Select(a => a.ToResponse(w.Deliveries.Where(d => d.AlertId == a.Id), w.Acks.Where(k => k.AlertId == a.Id))).ToList());
+    public Task<CursorPage<AlertResponse>> ListForTripPageAsync(Guid trip, CursorPosition? after, int limit, CancellationToken ct = default)
+    {
+      var take = CursorPagination.NormalizeLimit(limit);
+      var q = w.Alerts.Where(a => a.TripId == trip);
+      if (after is not null) q = q.Where(a => a.CreatedAt < after.SortAt || (a.CreatedAt == after.SortAt && a.Id.CompareTo(after.Id) < 0));
+      var rows = q.OrderByDescending(a => a.CreatedAt).ThenByDescending(a => a.Id).Take(take + 1).ToList();
+      var page = CursorPagination.ToPage(rows, take, a => new CursorPosition(a.CreatedAt, a.Id));
+      return Task.FromResult(new CursorPage<AlertResponse>(
+        page.Items.Select(a => a.ToResponse(w.Deliveries.Where(d => d.AlertId == a.Id), w.Acks.Where(k => k.AlertId == a.Id))).ToList(),
+        page.NextCursor, page.HasMore));
+    }
   }
 
   private sealed class FakeMemories(World w) : IMemoryRepository
   {
-    public Task<Memory?> GetByIdAsync(Guid id, CancellationToken ct = default) => Task.FromResult(w.Memories.FirstOrDefault(m => m.Id == id && !m.IsDeleted));
+    private IEnumerable<Memory> Active => w.Memories.Where(m => !m.IsDeleted);
+    public Task<Memory?> GetByIdAsync(Guid id, bool trackChanges = false, CancellationToken ct = default) => Task.FromResult(Active.FirstOrDefault(m => m.Id == id));
+    public Task<List<Memory>> ListEntitiesAsync(int? skip, int? take, bool trackChanges = false, CancellationToken ct = default) => Task.FromResult(Slice(Active, skip, take));
     public Task AddAsync(Memory m, CancellationToken ct = default) { w.Memories.Add(m); return Task.CompletedTask; }
+    public Task AddRangeAsync(IEnumerable<Memory> entities, CancellationToken ct = default) { w.Memories.AddRange(entities); return Task.CompletedTask; }
+    public void Update(Memory entity) { }
+    public void Remove(Memory entity) => w.Memories.Remove(entity);
+    public void RemoveRange(IEnumerable<Memory> entities) { foreach (var e in entities.ToList()) w.Memories.Remove(e); }
     public void Delete(Memory m) => m.SoftDelete(Guid.Empty, w.Clock.Now);
+    public void DeleteRange(IEnumerable<Memory> entities) { foreach (var e in entities) e.SoftDelete(Guid.Empty, w.Clock.Now); }
     public Task<Memory?> GetOwnedAsync(Guid id, Guid owner, CancellationToken ct = default) =>
-      Task.FromResult(w.Memories.FirstOrDefault(m => m.Id == id && !m.IsDeleted && w.Trips.Any(t => t.Id == m.TripId && t.OwnerId == owner)));
+      Task.FromResult(Active.FirstOrDefault(m => m.Id == id && w.Trips.Any(t => t.Id == m.TripId && t.OwnerId == owner && !t.IsDeleted)));
     public Task<IReadOnlyList<Memory>> ListByTripAsync(Guid trip, CancellationToken ct = default) =>
-      Task.FromResult<IReadOnlyList<Memory>>(w.Memories.Where(m => m.TripId == trip && !m.IsDeleted).OrderBy(m => m.TakenAt).ToList());
+      Task.FromResult<IReadOnlyList<Memory>>(Active.Where(m => m.TripId == trip).OrderBy(m => m.TakenAt).ThenBy(m => m.Id).ToList());
+    public Task<CursorPage<Memory>> ListByTripPageAsync(Guid trip, CursorPosition? after, int limit, CancellationToken ct = default)
+    {
+      var take = CursorPagination.NormalizeLimit(limit);
+      var q = Active.Where(m => m.TripId == trip);
+      if (after is not null) q = q.Where(m => m.TakenAt > after.SortAt || (m.TakenAt == after.SortAt && m.Id.CompareTo(after.Id) > 0));
+      var rows = q.OrderBy(m => m.TakenAt).ThenBy(m => m.Id).Take(take + 1).ToList();
+      return Task.FromResult(CursorPagination.ToPage(rows, take, m => new CursorPosition(m.TakenAt, m.Id)));
+    }
   }
 
   private sealed class FakeGroups(World w) : IGroupRepository
   {
-    public Task<Group?> GetByIdAsync(Guid id, CancellationToken ct = default) => Task.FromResult(w.Groups.FirstOrDefault(g => g.Id == id));
+    private IEnumerable<Group> Active => w.Groups.Where(g => !g.IsDeleted);
+    public Task<Group?> GetByIdAsync(Guid id, bool trackChanges = false, CancellationToken ct = default) => Task.FromResult(Active.FirstOrDefault(g => g.Id == id));
+    public Task<List<Group>> ListEntitiesAsync(int? skip, int? take, bool trackChanges = false, CancellationToken ct = default) => Task.FromResult(Slice(Active, skip, take));
     public Task AddAsync(Group g, CancellationToken ct = default) { w.Groups.Add(g); return Task.CompletedTask; }
+    public Task AddRangeAsync(IEnumerable<Group> entities, CancellationToken ct = default) { w.Groups.AddRange(entities); return Task.CompletedTask; }
+    public void Update(Group entity) { }
+    public void Remove(Group entity) => w.Groups.Remove(entity);
+    public void RemoveRange(IEnumerable<Group> entities) { foreach (var e in entities.ToList()) w.Groups.Remove(e); }
     public void Delete(Group g) => g.SoftDelete(Guid.Empty, w.Clock.Now);
-    public Task<Group?> GetWithMembersAsync(Guid id, CancellationToken ct = default) => GetByIdAsync(id, ct);
-    public Task<Group?> GetByCodeAsync(string code, CancellationToken ct = default) => Task.FromResult(w.Groups.FirstOrDefault(g => g.Code == code));
-    public Task<bool> CodeExistsAsync(string code, CancellationToken ct = default) => Task.FromResult(w.Groups.Any(g => g.Code == code));
-    public Task<IReadOnlyList<Group>> ListRidingAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Group>>(w.Groups.Where(g => g.Status == GroupStatus.Riding).ToList());
+    public void DeleteRange(IEnumerable<Group> entities) { foreach (var e in entities) e.SoftDelete(Guid.Empty, w.Clock.Now); }
+    public Task<Group?> GetWithMembersAsync(Guid id, CancellationToken ct = default) => GetByIdAsync(id, true, ct);
+    public Task<Group?> GetByCodeAsync(string code, CancellationToken ct = default) => Task.FromResult(Active.FirstOrDefault(g => g.Code == code));
+    public Task<bool> CodeExistsAsync(string code, CancellationToken ct = default) => Task.FromResult(Active.Any(g => g.Code == code));
+    public Task<IReadOnlyList<Group>> ListRidingAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Group>>(Active.Where(g => g.Status == GroupStatus.Riding).ToList());
   }
 
   private sealed class FakeGroupLoc(World w) : IGroupMemberLocationWriter
@@ -322,7 +413,13 @@ public sealed class World
 
   private sealed class FakeGroupMessages(World w) : IGroupMessageRepository
   {
+    public Task<GroupMessage?> GetByIdAsync(Guid id, bool trackChanges = false, CancellationToken ct = default) => Task.FromResult(w.Messages.FirstOrDefault(m => m.Id == id));
+    public Task<List<GroupMessage>> ListEntitiesAsync(int? skip, int? take, bool trackChanges = false, CancellationToken ct = default) => Task.FromResult(Slice(w.Messages, skip, take));
     public Task AddAsync(GroupMessage m, CancellationToken ct = default) { w.Messages.Add(m); return Task.CompletedTask; }
+    public Task AddRangeAsync(IEnumerable<GroupMessage> entities, CancellationToken ct = default) { w.Messages.AddRange(entities); return Task.CompletedTask; }
+    public void Update(GroupMessage entity) { }
+    public void Remove(GroupMessage entity) => w.Messages.Remove(entity);
+    public void RemoveRange(IEnumerable<GroupMessage> entities) { foreach (var e in entities.ToList()) w.Messages.Remove(e); }
     public Task<int> PurgeOlderThanAsync(DateTimeOffset cutoff, CancellationToken ct = default) => Task.FromResult(0);
   }
 
@@ -332,6 +429,17 @@ public sealed class World
     public Task<GroupResponse?> GetAsync(Guid id, Guid u, CancellationToken ct = default) => Task.FromResult(w.Groups.FirstOrDefault(g => g.Id == id && g.IsMember(u))?.ToResponse(10));
     public Task<GroupSnapshotResponse?> GetSnapshotAsync(Guid id, Guid u, DateTimeOffset? since, int max, CancellationToken ct = default) => Task.FromResult<GroupSnapshotResponse?>(null);
     public Task<IReadOnlyList<GroupMessageResponse>> ListMessagesAsync(Guid id, DateTimeOffset? since, int max, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<GroupMessageResponse>>([]);
+    public Task<CursorPage<GroupMessageResponse>> ListMessagesPageAsync(Guid id, CursorPosition? after, int limit, CancellationToken ct = default)
+    {
+      var take = CursorPagination.NormalizeLimit(limit);
+      var q = w.Messages.Where(m => m.GroupId == id);
+      if (after is not null) q = q.Where(m => m.CreatedAt > after.SortAt || (m.CreatedAt == after.SortAt && m.Id.CompareTo(after.Id) > 0));
+      var rows = q.OrderBy(m => m.CreatedAt).ThenBy(m => m.Id).Take(take + 1).ToList();
+      var page = CursorPagination.ToPage(rows, take, m => new CursorPosition(m.CreatedAt, m.Id));
+      return Task.FromResult(new CursorPage<GroupMessageResponse>(
+        page.Items.Select(m => new GroupMessageResponse(m.Id, m.SenderId, w.Users.FirstOrDefault(u => u.Id == m.SenderId)?.Name ?? "", m.QuickType ?? "", m.Text ?? "", m.CreatedAt)).ToList(),
+        page.NextCursor, page.HasMore));
+    }
   }
 
   private sealed class NoGeocoder : IGeocodingService

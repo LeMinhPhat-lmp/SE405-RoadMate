@@ -12,6 +12,6 @@ public class GroupMessageConfiguration : IEntityTypeConfiguration<GroupMessage>
   public void Configure(EntityTypeBuilder<GroupMessage> e)
   {
     e.HasOne(x => x.Sender).WithMany().HasForeignKey(x => x.SenderId);
-    e.HasIndex(x => new { x.GroupId, x.CreatedAt });
+    e.HasIndex(x => new { x.GroupId, x.CreatedAt, x.Id });
   }
 }

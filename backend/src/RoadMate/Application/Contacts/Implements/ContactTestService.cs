@@ -14,7 +14,7 @@ public class ContactTestService(IUserRepository users, IEmergencyContactReposito
   {
     var c = await contacts.GetOwnedAsync(userId, contactId, ct);
     if (c is null) return Errors.ContactNotFound;
-    var user = await users.GetByIdAsync(userId, ct);
+    var user = await users.GetByIdAsync(userId, cancellationToken: ct);
     if (user is null) return Errors.UserNotSynced;
 
     var body = $"[RoadMate] Tin nhắn thử: {user.Name} đã thêm bạn làm người liên hệ khẩn cấp.";

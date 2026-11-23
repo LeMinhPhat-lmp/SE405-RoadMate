@@ -25,14 +25,10 @@ public partial class RoutingService(IMapGateway goong, IOptions<MapOptions> opti
 
   public async Task<Result<DirectionsResponse>> DirectionsAsync(DirectionsRequest req, CancellationToken ct)
   {
-    if (req.Origin is null || req.Destination is null) return Error.Validation("MISSING_POINTS", "Thiếu điểm đi hoặc điểm đến.");
     var waypoints = req.Waypoints ?? [];
-    if (waypoints.Count > MaxWaypoints) return Error.Validation("TOO_MANY_WAYPOINTS", $"Tối đa {MaxWaypoints} điểm dừng.");
-
     var pts = new List<LatLng> { req.Origin };
     pts.AddRange(waypoints);
     pts.Add(req.Destination);
-    if (pts.Any(p => p is null || !Geo.ValidLatLng(p.Lat, p.Lng))) return Errors.InvalidLocation;
 
     var o = options.Value;
     var vehicle = VehicleMap.Resolve(req.Vehicle, o);
@@ -142,10 +138,6 @@ public partial class RoutingService(IMapGateway goong, IOptions<MapOptions> opti
   public async Task<Result<DistanceMatrixResponse>> MatrixAsync(DistanceMatrixRequest req, CancellationToken ct)
   {
     var origins = req.Origins ?? []; var dests = req.Destinations ?? [];
-    if (origins.Count == 0 || dests.Count == 0) return Error.Validation("MISSING_POINTS", "Cần ít nhất 1 điểm xuất phát và 1 điểm đến.");
-    if (origins.Count > MaxMatrixOrigins || dests.Count > MaxMatrixDestinations)
-      return Error.Validation("TOO_MANY_POINTS", $"Tối đa {MaxMatrixOrigins} điểm xuất phát và {MaxMatrixDestinations} điểm đến.");
-    if (origins.Concat(dests).Any(p => p is null || !Geo.ValidLatLng(p.Lat, p.Lng))) return Errors.InvalidLocation;
     var vehicle = VehicleMap.Resolve(req.Vehicle, options.Value);
     if (vehicle.IsFailure) return vehicle.Error;
 

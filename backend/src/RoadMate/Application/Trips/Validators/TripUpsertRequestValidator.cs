@@ -1,20 +1,46 @@
+using FluentValidation;
 using RoadMate.Application.Accounts.Validators;
-using RoadMate.Application.Abstractions.Messaging;
-using RoadMate.Application.Accounts;
+using RoadMate.Application.Common;
 using RoadMate.Application.Trips.DTOs.Requests;
 using RoadMate.Domain.Common;
+using RoadMate.Domain.ValueObjects;
 
 namespace RoadMate.Application.Trips.Validators;
 
-/// <summary>Order identical to the legacy validator; the waypoint cap now also lives in the aggregate.</summary>
-public sealed class TripUpsertRequestValidator : IRequestValidator<TripUpsertRequest>
+/// <summary>Order matches the API contract; the waypoint cap also lives in the aggregate.</summary>
+public sealed class TripUpsertRequestValidator : AbstractValidator<TripUpsertRequest>
 {
-  public Result Validate(TripUpsertRequest r, DateTimeOffset now)
+  public const int MaxTitleLength = 200;
+
+  public TripUpsertRequestValidator()
   {
-    if (string.IsNullOrWhiteSpace(r.Title) || r.Title.Length > 200) return Error.Validation("INVALID_TITLE", "Tên chuyến bắt buộc (≤200 ký tự).");
-    if (!Geo.ValidLatLng(r.Origin.Lat, r.Origin.Lng) || !Geo.ValidLatLng(r.Destination.Lat, r.Destination.Lng)) return Errors.InvalidLocation;
-    if ((r.Waypoints?.Count ?? 0) > Errors.MaxWaypoints) return Errors.TooManyWaypoints;
-    if (r.Waypoints?.Any(w => !Geo.ValidLatLng(w.Lat, w.Lng)) == true) return Errors.InvalidLocation;
-    return SafetySettingsRules.Check(r.CrashSensitivity, r.IdleMinutes);
+    RuleFor(x => x.Title)
+      .Cascade(CascadeMode.Stop)
+      .NotEmpty()
+        .WithErrorCode("INVALID_TITLE")
+        .WithMessage("Tên chuyến bắt buộc (≤200 ký tự).")
+      .MaximumLength(MaxTitleLength)
+        .WithErrorCode("INVALID_TITLE")
+        .WithMessage("Tên chuyến bắt buộc (≤200 ký tự).");
+
+    RuleFor(x => x.Origin)
+      .Must(o => o is not null && GeoPoint.Create(o.Lat, o.Lng).IsSuccess)
+      .WithError(Errors.InvalidLocation);
+
+    RuleFor(x => x.Destination)
+      .Must(d => d is not null && GeoPoint.Create(d.Lat, d.Lng).IsSuccess)
+      .WithError(Errors.InvalidLocation);
+
+    RuleFor(x => x.Waypoints)
+      .Must(w => w is null || w.Count <= Errors.MaxWaypoints)
+      .WithError(Errors.TooManyWaypoints);
+
+    RuleForEach(x => x.Waypoints)
+      .Must(w => w is not null && GeoPoint.Create(w.Lat, w.Lng).IsSuccess)
+      .WithError(Errors.InvalidLocation)
+      .When(x => x.Waypoints is not null);
+
+    RuleFor(x => x.CrashSensitivity).ValidCrashSensitivity();
+    RuleFor(x => x.IdleMinutes).ValidIdleMinutes();
   }
 }

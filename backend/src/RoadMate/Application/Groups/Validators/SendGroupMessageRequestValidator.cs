@@ -1,13 +1,16 @@
-using RoadMate.Application.Abstractions.Messaging;
+using FluentValidation;
 using RoadMate.Application.Groups.DTOs.Requests;
-using RoadMate.Domain.Common;
+using RoadMate.Domain.Groups;
 
 namespace RoadMate.Application.Groups.Validators;
 
-public sealed class SendGroupMessageRequestValidator : IRequestValidator<SendGroupMessageRequest>
+public sealed class SendGroupMessageRequestValidator : AbstractValidator<SendGroupMessageRequest>
 {
-  public Result Validate(SendGroupMessageRequest r, DateTimeOffset now) =>
-    RoadMate.Domain.Groups.QuickMessages.IsValid(r.QuickType)
-      ? Result.Success()
-      : Error.Validation("INVALID_QUICK_TYPE", $"quickType phải là một trong: {string.Join(", ", RoadMate.Domain.Groups.QuickMessages.All)}.");
+  public SendGroupMessageRequestValidator()
+  {
+    RuleFor(x => x.QuickType)
+      .Must(QuickMessages.IsValid)
+      .WithErrorCode("INVALID_QUICK_TYPE")
+      .WithMessage($"quickType phải là một trong: {string.Join(", ", QuickMessages.All)}.");
+  }
 }

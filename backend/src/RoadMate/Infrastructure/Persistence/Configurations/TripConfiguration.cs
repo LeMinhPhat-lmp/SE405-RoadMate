@@ -22,6 +22,7 @@ public class TripConfiguration : IEntityTypeConfiguration<Trip>
     e.Navigation(x => x.Recipients).UsePropertyAccessMode(PropertyAccessMode.Field);
     e.Property(x => x.Title).HasMaxLength(200);
     e.HasIndex(x => x.TrackingToken).IsUnique();
-    e.HasIndex(x => new { x.OwnerId, x.Status });
+    e.HasIndex(x => new { x.OwnerId, x.CreatedAt, x.Id });
+    e.HasIndex(x => new { x.OwnerId, x.Status, x.CreatedAt, x.Id });
   }
 }

@@ -1,28 +1,55 @@
+using FluentValidation;
+using FluentValidation.Results;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
-using RoadMate.Application.Abstractions.Messaging;
 
 namespace RoadMate.Api.Http;
 
 /// <summary>
-/// Runs the registered <c>IRequestValidator&lt;T&gt;</c> for every action argument before the controller executes and answers
-/// 400 ProblemDetails (same code/message as before) on failure. Controllers never validate by hand.
+/// Runs every registered FluentValidation <c>IValidator&lt;T&gt;</c> asynchronously for non-null action arguments
+/// before the controller executes and returns 400 ProblemDetails on failure. Controllers never validate by hand.
 /// </summary>
-public sealed class ValidationFilter(IServiceProvider services, TimeProvider clock) : IAsyncActionFilter
+public sealed class ValidationFilter : IAsyncActionFilter
 {
-  public Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
+  public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
   {
-    foreach (var arg in context.ActionArguments.Values.Where(a => a is not null))
+    var services = context.HttpContext.RequestServices;
+    var ct = context.HttpContext.RequestAborted;
+    List<ValidationFailure>? failures = null;
+
+    foreach (var arg in context.ActionArguments.Values)
     {
-      var validator = services.GetService(typeof(IRequestValidator<>).MakeGenericType(arg!.GetType()));
-      if (validator is null) continue;
-      var method = validator.GetType().GetMethod(nameof(IRequestValidator<object>.Validate))!;
-      var result = (RoadMate.Domain.Common.Result)method.Invoke(validator, [arg, clock.GetUtcNow()])!;
-      if (result.IsFailure)
+      if (arg is null or CancellationToken) continue;
+
+      var validatorType = typeof(IValidator<>).MakeGenericType(arg.GetType());
+      var validators = services.GetServices(validatorType);
+      ValidationContext<object>? validationContext = null;
+
+      foreach (var item in validators)
       {
-        context.Result = result.Error.ToProblem(context.HttpContext);
-        return Task.CompletedTask;
+        if (item is not IValidator validator) continue;
+        validationContext ??= new ValidationContext<object>(arg);
+        var result = await validator.ValidateAsync(validationContext, ct);
+        if (!result.IsValid)
+        {
+          failures ??= [];
+          failures.AddRange(result.Errors);
+        }
       }
     }
-    return next();
+
+    if (failures is { Count: > 0 })
+    {
+      var first = failures[0];
+      var code = string.IsNullOrWhiteSpace(first.ErrorCode) ? "VALIDATION_ERROR" : first.ErrorCode;
+      var pd = ProblemFactory.Create(context.HttpContext, StatusCodes.Status400BadRequest, code, first.ErrorMessage);
+      pd.Extensions["errors"] = failures
+        .GroupBy(f => f.PropertyName)
+        .ToDictionary(g => g.Key, g => g.Select(f => f.ErrorMessage).Distinct().ToArray());
+      context.Result = new ObjectResult(pd) { StatusCode = pd.Status };
+      return;
+    }
+
+    await next();
   }
 }

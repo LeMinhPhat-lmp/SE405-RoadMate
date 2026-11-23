@@ -2,7 +2,7 @@ using RoadMate.Domain.Users;
 
 namespace RoadMate.Application.Abstractions.Persistence;
 
-public interface IUserRepository : IRepository<User>, ISoftDeleteRepository<User>
+public interface IUserRepository : IGenericRepository<User>, ISoftDeleteRepository<User>
 {
   /// <summary>Tracked, with non-deleted contacts loaded (needed for the 5-contact rule).</summary>
   Task<User?> GetWithContactsAsync(Guid id, CancellationToken ct = default);

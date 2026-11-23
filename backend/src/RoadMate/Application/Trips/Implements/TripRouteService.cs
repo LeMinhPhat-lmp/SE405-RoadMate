@@ -19,7 +19,6 @@ public class TripRouteService(ITripRepository trips, IRoutingService routing, IU
     if (trip.Status == TripStatus.Finished) return Errors.TripFinished;
     var reroute = req.From is not null;
     if (reroute && trip.Status != TripStatus.Active) return Errors.TripNotActive;
-    if (reroute && !Geo.ValidLatLng(req.From!.Lat, req.From.Lng)) return Errors.InvalidLocation;
     var ordered = trip.Waypoints.OrderBy(w => w.Seq).ToList();
     var passed = req.PassedWaypoints ?? 0;
     if (passed < 0 || passed > ordered.Count) return Error.Validation("INVALID_PASSED_WAYPOINTS", $"passedWaypoints phải từ 0 đến {ordered.Count}.");

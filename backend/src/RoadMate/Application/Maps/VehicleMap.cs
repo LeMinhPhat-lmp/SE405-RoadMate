@@ -5,6 +5,9 @@ namespace RoadMate.Application.Maps;
 /// <summary>Đổi loại xe của RoadMate sang giá trị <c>vehicle</c> của Goong (cấu hình được).</summary>
 public static class VehicleMap
 {
+  public static bool IsValid(string? vehicle) => (vehicle ?? "motorbike").Trim().ToLowerInvariant() is
+    "" or "motorbike" or "motorcycle" or "bike" or "moto" or "car";
+
   public static Result<string> Resolve(string? vehicle, MapOptions o)
   {
     switch ((vehicle ?? "motorbike").Trim().ToLowerInvariant())

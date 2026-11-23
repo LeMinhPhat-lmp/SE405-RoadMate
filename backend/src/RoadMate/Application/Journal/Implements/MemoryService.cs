@@ -1,9 +1,11 @@
 using RoadMate.Application.Abstractions.Persistence;
 using RoadMate.Application.Abstractions.Storage;
+using RoadMate.Application.Common;
 using RoadMate.Application.Journal.DTOs.Requests;
 using RoadMate.Application.Journal.DTOs.Responses;
 using RoadMate.Application.Journal.Interfaces;
 using RoadMate.Application.Journal.Mappers;
+using RoadMate.Application.Shared;
 using RoadMate.Domain.Common;
 using RoadMate.Domain.Trips;
 
@@ -16,6 +18,14 @@ public class MemoryService(ITripRepository trips, IMemoryRepository memories, IM
   {
     if (await trips.GetOwnedAsync(tripId, userId, ct) is null) return Errors.TripNotFound;
     return (await memories.ListByTripAsync(tripId, ct)).Select(m => m.ToDto(storage)).ToList();
+  }
+
+  public async Task<Result<CursorPageResponse<MemoryResponse>>> ListPageAsync(Guid userId, Guid tripId, string? cursor, int? limit, CancellationToken ct)
+  {
+    if (!CursorPosition.TryDecode(cursor, out var after)) return CursorPagination.InvalidCursor;
+    if (await trips.GetOwnedAsync(tripId, userId, ct) is null) return Errors.TripNotFound;
+    var page = await memories.ListByTripPageAsync(tripId, after, CursorPagination.NormalizeLimit(limit), ct);
+    return new CursorPageResponse<MemoryResponse>(page.Items.Select(m => m.ToDto(storage)).ToList(), page.NextCursor, page.HasMore);
   }
 
   public async Task<Result<MemoryResponse>> AddAsync(Guid userId, Guid tripId, MemoryRequest req, CancellationToken ct)

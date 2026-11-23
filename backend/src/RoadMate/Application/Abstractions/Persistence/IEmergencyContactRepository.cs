@@ -2,9 +2,9 @@ using RoadMate.Domain.Users;
 
 namespace RoadMate.Application.Abstractions.Persistence;
 
-public interface IEmergencyContactRepository
+public interface IEmergencyContactRepository : IGenericRepository<EmergencyContact>, ISoftDeleteRepository<EmergencyContact>
 {
-  /// <summary>No tracking, ordered by priority.</summary>
+  /// <summary>No tracking, ordered by priority (bounded to 5 per user).</summary>
   Task<IReadOnlyList<EmergencyContact>> ListForUserAsync(Guid userId, CancellationToken ct = default);
   Task<EmergencyContact?> GetOwnedAsync(Guid userId, Guid contactId, CancellationToken ct = default);
   /// <summary>Of <paramref name="ids"/>, those that belong to <paramref name="userId"/> (and are not deleted).</summary>

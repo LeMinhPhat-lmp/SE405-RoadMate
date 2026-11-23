@@ -90,8 +90,9 @@ public class MediaTests
     var w = new World(); var u = w.AddUser(); var t = w.AddActiveTrip(u);
     var up = await w.Get<IMediaService>().CreateUploadUrlAsync(u.Id, t.Id, new UploadUrlRequest("photo", "image/jpeg", 1000), default);
     Assert.True(up.IsSuccess); Assert.StartsWith($"users/{u.FirebaseUid}/trips/{t.Id}/", up.Value.MediaPath);
-    (await w.Get<IMediaService>().CreateUploadUrlAsync(u.Id, t.Id, new UploadUrlRequest("photo", "image/jpeg", 6 * 1024 * 1024), default)).ShouldFailWith("FILE_TOO_LARGE");
-    (await w.Get<IMediaService>().CreateUploadUrlAsync(u.Id, t.Id, new UploadUrlRequest("audio", "x", 1), default)).ShouldFailWith("INVALID_KIND");
+    var uploadValidator = w.Get<FluentValidation.IValidator<UploadUrlRequest>>();
+    uploadValidator.Validate(new UploadUrlRequest("photo", "image/jpeg", 6 * 1024 * 1024)).ShouldFailWith("FILE_TOO_LARGE");
+    uploadValidator.Validate(new UploadUrlRequest("audio", "x", 1)).ShouldFailWith("INVALID_KIND");
 
     var ok = await w.Get<IMemoryService>().AddAsync(u.Id, t.Id, new MemoryRequest("photo", up.Value.MediaPath, "Đèo Bảo Lộc", null, null, null, null, 5, null), default);
     Assert.True(ok.IsSuccess); Assert.StartsWith("https://storage.test/dl/", ok.Value.MediaUrl);
@@ -173,35 +174,35 @@ public class ValidatorTests
   [Fact, Trait("Scenario", "EXTRA-A-VAL-01")]
   public void Create_alert_validator_order()
   {
-    var v = new CreateAlertRequestValidator(); var now = Make.Now;
-    v.Validate(new CreateAlertRequest("", "crash", 1, 1, null), now).ShouldFailWith("INVALID_CLIENT_ID");
-    v.Validate(new CreateAlertRequest(new string('x', 101), "crash", 1, 1, null), now).ShouldFailWith("INVALID_CLIENT_ID");
-    v.Validate(new CreateAlertRequest("c", "boom", 1, 1, null), now).ShouldFailWith("INVALID_TYPE");
-    v.Validate(new CreateAlertRequest("c", "crash", 91, 1, null), now).ShouldFailWith("INVALID_LOCATION");
-    Assert.True(v.Validate(new CreateAlertRequest("c", "LOWBATTERY", 1, 1, null), now).IsSuccess);
+    var v = new CreateAlertRequestValidator();
+    v.Validate(new CreateAlertRequest("", "crash", 1, 1, null)).ShouldFailWith("INVALID_CLIENT_ID");
+    v.Validate(new CreateAlertRequest(new string('x', 101), "crash", 1, 1, null)).ShouldFailWith("INVALID_CLIENT_ID");
+    v.Validate(new CreateAlertRequest("c", "boom", 1, 1, null)).ShouldFailWith("INVALID_TYPE");
+    v.Validate(new CreateAlertRequest("c", "crash", 91, 1, null)).ShouldFailWith("INVALID_LOCATION");
+    Assert.True(v.Validate(new CreateAlertRequest("c", "LOWBATTERY", 1, 1, null)).IsValid);
   }
 
   [Fact, Trait("Scenario", "EXTRA-A-VAL-02")]
   public void Trip_validator()
   {
-    var v = new TripUpsertRequestValidator(); var now = Make.Now; var ok = new LocationResponse("A", 10, 106);
+    var v = new TripUpsertRequestValidator(); var ok = new LocationResponse("A", 10, 106);
     TripUpsertRequest R(string title = "T", int waypoints = 0, string? sens = null, int? idle = null, LocationResponse? origin = null) => new(title, origin ?? ok, ok,
       Enumerable.Range(0, waypoints).Select(i => new WaypointInput("w", 10, 106, null)).ToList(), null, null, null, false, false, null, idle, sens, false, null);
-    v.Validate(R(""), now).ShouldFailWith("INVALID_TITLE");
-    v.Validate(R(new string('x', 201)), now).ShouldFailWith("INVALID_TITLE");
-    v.Validate(R(origin: new LocationResponse("A", 100, 0)), now).ShouldFailWith("INVALID_LOCATION");
-    v.Validate(R(waypoints: 21), now).ShouldFailWith("TOO_MANY_WAYPOINTS");
-    v.Validate(R(sens: "x"), now).ShouldFailWith("INVALID_SENSITIVITY");
-    v.Validate(R(idle: 241), now).ShouldFailWith("INVALID_IDLE");
-    Assert.True(v.Validate(R(waypoints: 20, sens: "HIGH", idle: 240), now).IsSuccess);
+    v.Validate(R("")).ShouldFailWith("INVALID_TITLE");
+    v.Validate(R(new string('x', 201))).ShouldFailWith("INVALID_TITLE");
+    v.Validate(R(origin: new LocationResponse("A", 100, 0))).ShouldFailWith("INVALID_LOCATION");
+    v.Validate(R(waypoints: 21)).ShouldFailWith("TOO_MANY_WAYPOINTS");
+    v.Validate(R(sens: "x")).ShouldFailWith("INVALID_SENSITIVITY");
+    v.Validate(R(idle: 241)).ShouldFailWith("INVALID_IDLE");
+    Assert.True(v.Validate(R(waypoints: 20, sens: "HIGH", idle: 240)).IsValid);
   }
 
   [Fact, Trait("Scenario", "EXTRA-A-VAL-03")]
   public void Contact_validator()
   {
     var v = new ContactRequestValidator();
-    v.Validate(new ContactRequest(" ", "0912345678", null, null), Make.Now).ShouldFailWith("INVALID_NAME");
-    v.Validate(new ContactRequest("Mẹ", "123", null, null), Make.Now).ShouldFailWith("INVALID_PHONE");
-    Assert.True(v.Validate(new ContactRequest("Mẹ", "+84 912 345 678", null, null), Make.Now).IsSuccess);
+    v.Validate(new ContactRequest(" ", "0912345678", null, null)).ShouldFailWith("INVALID_NAME");
+    v.Validate(new ContactRequest("Mẹ", "123", null, null)).ShouldFailWith("INVALID_PHONE");
+    Assert.True(v.Validate(new ContactRequest("Mẹ", "+84 912 345 678", null, null)).IsValid);
   }
 }

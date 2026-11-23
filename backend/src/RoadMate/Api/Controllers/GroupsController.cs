@@ -53,6 +53,11 @@ public class GroupsController(IGroupService svc, IGroupMessageService messages) 
   public async Task<IActionResult> Messages(Guid id, [FromQuery] DateTime? since, CancellationToken ct) =>
     Handle(await messages.ListMessagesAsync(UserId, id, since, ct));
 
+  /// <summary>Tin nhắn nhóm phân trang theo con trỏ (keyset cursor).</summary>
+  [HttpGet("groups/{id:guid}/messages/paged")]
+  public async Task<IActionResult> MessagesPaged(Guid id, [FromQuery] string? cursor, [FromQuery] int? limit, CancellationToken ct) =>
+    Handle(await messages.ListMessagesPageAsync(UserId, id, cursor, limit, ct));
+
   /// <summary>Gửi tin định sẵn: rest | out_of_fuel | need_help | police. "need_help" còn push cho cả nhóm.</summary>
   [HttpPost("groups/{id:guid}/messages")]
   public async Task<IActionResult> SendMessage(Guid id, SendGroupMessageRequest req, CancellationToken ct) =>

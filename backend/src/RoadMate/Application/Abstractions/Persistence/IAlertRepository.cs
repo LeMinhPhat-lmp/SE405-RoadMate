@@ -1,11 +1,8 @@
-using RoadMate.Application.Alerts;
-using RoadMate.Application.Tracking;
 using RoadMate.Domain.Alerts;
-using RoadMate.Domain.Users;
 
 namespace RoadMate.Application.Abstractions.Persistence;
 
-public interface IAlertRepository : IRepository<Alert>
+public interface IAlertRepository : IGenericRepository<Alert>
 {
   /// <summary>Tracked alert of this user.</summary>
   Task<Alert?> GetOwnedAsync(Guid alertId, Guid userId, CancellationToken ct = default);

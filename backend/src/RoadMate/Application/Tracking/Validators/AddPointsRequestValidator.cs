@@ -1,15 +1,29 @@
-using RoadMate.Application.Abstractions.Messaging;
+using FluentValidation;
+using RoadMate.Application.Common;
 using RoadMate.Application.Tracking.DTOs.Requests;
 using RoadMate.Domain.Common;
+using RoadMate.Domain.ValueObjects;
 
 namespace RoadMate.Application.Tracking.Validators;
 
-public sealed class AddPointsRequestValidator : IRequestValidator<AddPointsRequest>
+public sealed class AddPointsRequestValidator : AbstractValidator<AddPointsRequest>
 {
   public const int MaxBatch = 500;
-  public Result Validate(AddPointsRequest req, DateTimeOffset now)
+
+  public AddPointsRequestValidator()
   {
-    if (req.Points.Count > MaxBatch) return Error.Validation("BATCH_TOO_LARGE", $"Tối đa {MaxBatch} điểm mỗi lần gửi.");
-    return req.Points.Any(p => !Geo.ValidLatLng(p.Lat, p.Lng)) ? Errors.InvalidLocation : Result.Success();
+    RuleFor(x => x.Points)
+      .Cascade(CascadeMode.Stop)
+      .NotNull()
+        .WithErrorCode("INVALID_POINTS")
+        .WithMessage("Danh sách điểm không được để trống.")
+      .Must(p => p.Count <= MaxBatch)
+        .WithErrorCode("BATCH_TOO_LARGE")
+        .WithMessage($"Tối đa {MaxBatch} điểm mỗi lần gửi.");
+
+    RuleForEach(x => x.Points)
+      .Must(p => p is not null && GeoPoint.Create(p.Lat, p.Lng).IsSuccess)
+      .WithError(Errors.InvalidLocation)
+      .When(x => x.Points is not null);
   }
 }

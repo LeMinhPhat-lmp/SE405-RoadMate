@@ -282,8 +282,8 @@ public class TelemetryAndMonitorTests
     var p = new PointInput(10, 106, 20, 5, 90, w.Clock.Now.UtcDateTime);
     Assert.True((await svc.AddPointsAsync(o.Id, t.Id, new AddPointsRequest([]), default)).IsSuccess); Assert.Empty(w.Points);
     (await svc.AddPointsAsync(Guid.NewGuid(), t.Id, new AddPointsRequest([p]), default)).ShouldFailWith("TRIP_NOT_FOUND");
-    new AddPointsRequestValidator().Validate(new AddPointsRequest(Enumerable.Repeat(p, 501).ToList()), w.Clock.Now).ShouldFailWith("BATCH_TOO_LARGE");
-    new AddPointsRequestValidator().Validate(new AddPointsRequest([p with { Lat = 99 }]), w.Clock.Now).ShouldFailWith("INVALID_LOCATION");
+    new AddPointsRequestValidator().Validate(new AddPointsRequest(Enumerable.Repeat(p, 501).ToList())).ShouldFailWith("BATCH_TOO_LARGE");
+    new AddPointsRequestValidator().Validate(new AddPointsRequest([p with { Lat = 99 }])).ShouldFailWith("INVALID_LOCATION");
   }
 
   [Fact, Trait("Scenario", "A-TELE-03")]

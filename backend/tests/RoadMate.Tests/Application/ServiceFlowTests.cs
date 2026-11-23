@@ -121,7 +121,7 @@ public class TripCrudTests
   public async Task Rest_expected_return_and_summary_guards()
   {
     var w = new World(); var u = w.AddUser(); var t = w.AddActiveTrip(u); var svc = w.Get<ITripLifecycleService>();
-    new RestRequestValidator().Validate(new RestRequest(4), w.Clock.Now).ShouldFailWith("INVALID_REST");
+    new RestRequestValidator().Validate(new RestRequest(4)).ShouldFailWith("INVALID_REST");
     Assert.NotNull((await svc.SetRestAsync(u.Id, t.Id, 30, default)).Value.RestUntil);
     Assert.Null((await svc.ClearRestAsync(u.Id, t.Id, default)).Value.RestUntil);
     (await svc.ExtendReturnAsync(u.Id, t.Id, w.Clock.Now.UtcDateTime.AddHours(-1), default)).ShouldFailWith("INVALID_RETURN_TIME");

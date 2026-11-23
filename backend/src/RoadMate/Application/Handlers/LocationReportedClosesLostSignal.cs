@@ -13,6 +13,6 @@ public sealed class LocationReportedClosesLostSignal(IAlertRepository alerts, IT
   {
     if (!e.ClearsLostSignal) return;
     foreach (var a in await alerts.ListOpenByTripAsync(e.TripId, AlertType.LostSignal, ct)) a.Close(AlertStatus.Resolved, AlertResolver.System, e.OccurredAt);
-    (await trips.GetByIdAsync(e.TripId, ct))?.MarkSignalRestored();
+    (await trips.GetByIdAsync(e.TripId, trackChanges: true, ct))?.MarkSignalRestored();
   }
 }

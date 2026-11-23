@@ -20,6 +20,7 @@ public class AlertConfiguration : IEntityTypeConfiguration<Alert>
     e.Property(x => x.ClientId).HasMaxLength(100).IsRequired();
     e.Property(x => x.LockedBy).HasMaxLength(100);
     e.HasIndex(x => x.ClientId).IsUnique();
+    e.HasIndex(x => new { x.TripId, x.CreatedAt, x.Id });
     e.HasIndex(x => new { x.Status, x.NextRepeatAt });
   }
 }

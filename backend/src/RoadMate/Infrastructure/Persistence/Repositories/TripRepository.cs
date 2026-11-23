@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using RoadMate.Application.Abstractions.Identity;
 using RoadMate.Application.Abstractions.Persistence;
+using RoadMate.Application.Common;
 using RoadMate.Domain.Trips;
 
 namespace RoadMate.Infrastructure.Persistence.Repositories;
@@ -16,7 +17,26 @@ public class TripRepository(AppDbContext db, ICurrentUser user, TimeProvider clo
 
   public async Task<IReadOnlyList<Trip>> ListByOwnerAsync(Guid ownerId, TripStatus? status, CancellationToken ct = default) =>
     await Set.AsNoTracking().Include(t => t.Waypoints).Include(t => t.Recipients).AsSplitQuery()
-      .Where(t => t.OwnerId == ownerId && (status == null || t.Status == status)).OrderByDescending(t => t.CreatedAt).ToListAsync(ct);
+      .Where(t => t.OwnerId == ownerId && (status == null || t.Status == status))
+      .OrderByDescending(t => t.CreatedAt).ThenByDescending(t => t.Id).ToListAsync(ct);
+
+  public async Task<CursorPage<Trip>> ListByOwnerPageAsync(Guid ownerId, TripStatus? status, CursorPosition? after, int limit, CancellationToken ct = default)
+  {
+    var take = CursorPagination.NormalizeLimit(limit);
+    IQueryable<Trip> q = Set.AsNoTracking()
+      .Include(t => t.Waypoints).Include(t => t.Recipients).AsSplitQuery()
+      .Where(t => t.OwnerId == ownerId && (status == null || t.Status == status));
+
+    if (after is not null)
+    {
+      var afterAt = after.SortAt;
+      var afterId = after.Id;
+      q = q.Where(t => t.CreatedAt < afterAt || (t.CreatedAt == afterAt && t.Id.CompareTo(afterId) < 0));
+    }
+
+    var rows = await q.OrderByDescending(t => t.CreatedAt).ThenByDescending(t => t.Id).Take(take + 1).ToListAsync(ct);
+    return CursorPagination.ToPage(rows, take, t => new CursorPosition(t.CreatedAt, t.Id));
+  }
 
   public Task<bool> HasActiveAsync(Guid ownerId, CancellationToken ct = default) => Set.AnyAsync(t => t.OwnerId == ownerId && t.Status == TripStatus.Active, ct);
 

@@ -1,10 +1,13 @@
-using RoadMate.Application.Abstractions.Messaging;
+using FluentValidation;
 using RoadMate.Application.Accounts.DTOs.Requests;
-using RoadMate.Domain.Common;
 
 namespace RoadMate.Application.Accounts.Validators;
 
-public sealed class UpdateProfileRequestValidator : IRequestValidator<UpdateProfileRequest>
+public sealed class UpdateProfileRequestValidator : AbstractValidator<UpdateProfileRequest>
 {
-  public Result Validate(UpdateProfileRequest r, DateTimeOffset now) => SafetySettingsRules.Check(r.CrashSensitivity, r.IdleMinutes);
+  public UpdateProfileRequestValidator()
+  {
+    RuleFor(x => x.CrashSensitivity).ValidCrashSensitivity();
+    RuleFor(x => x.IdleMinutes).ValidIdleMinutes();
+  }
 }

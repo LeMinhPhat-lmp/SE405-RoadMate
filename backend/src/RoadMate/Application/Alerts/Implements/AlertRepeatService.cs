@@ -12,10 +12,10 @@ public class AlertRepeatService(IAlertRepository alerts, ITripRepository trips, 
 {
   public async Task RepeatAsync(Guid alertId, CancellationToken ct)
   {
-    var alert = await alerts.GetByIdAsync(alertId, ct);
+    var alert = await alerts.GetByIdAsync(alertId, trackChanges: true, ct);
     if (alert is null || !alert.IsOpen) return;
     var o = options.Value; var now = clock.GetUtcNow();
-    var trip = await trips.GetByIdAsync(alert.TripId, ct);
+    var trip = await trips.GetByIdAsync(alert.TripId, cancellationToken: ct);
     var finished = trip is null || trip.Status == TripStatus.Finished;
     var allAcked = !finished && await planner.AllRecipientsAckedAsync(alert, ct);
     var interval = policies.For(alert.Type).RepeatInterval(o.Timing);

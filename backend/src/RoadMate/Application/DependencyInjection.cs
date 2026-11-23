@@ -1,41 +1,27 @@
-using RoadMate.Application.Accounts.Validators;
+using FluentValidation;
 using Microsoft.Extensions.Options;
 using RoadMate.Application.Abstractions.Messaging;
-using RoadMate.Application.Accounts;
-using RoadMate.Application.Accounts.DTOs.Requests;
 using RoadMate.Application.Accounts.Implements;
 using RoadMate.Application.Accounts.Interfaces;
 using RoadMate.Application.Alerts;
-using RoadMate.Application.Alerts.DTOs.Requests;
 using RoadMate.Application.Alerts.Implements;
 using RoadMate.Application.Alerts.Interfaces;
-using RoadMate.Application.Alerts.Validators;
-using RoadMate.Application.Contacts.DTOs.Requests;
 using RoadMate.Application.Contacts.Implements;
 using RoadMate.Application.Contacts.Interfaces;
-using RoadMate.Application.Contacts.Validators;
-using RoadMate.Application.Groups.DTOs.Requests;
 using RoadMate.Application.Groups.Implements;
 using RoadMate.Application.Groups.Interfaces;
-using RoadMate.Application.Groups.Validators;
 using RoadMate.Application.Handlers;
-using RoadMate.Application.Journal.DTOs.Requests;
 using RoadMate.Application.Journal.Implements;
 using RoadMate.Application.Journal.Interfaces;
-using RoadMate.Application.Journal.Validators;
 using RoadMate.Application.Maps.Implements;
 using RoadMate.Application.Maps.Interfaces;
 using RoadMate.Application.Monitoring.Implements;
 using RoadMate.Application.Monitoring.Interfaces;
 using RoadMate.Application.Notifications;
-using RoadMate.Application.Tracking.DTOs.Requests;
 using RoadMate.Application.Tracking.Implements;
 using RoadMate.Application.Tracking.Interfaces;
-using RoadMate.Application.Tracking.Validators;
-using RoadMate.Application.Trips.DTOs.Requests;
 using RoadMate.Application.Trips.Implements;
 using RoadMate.Application.Trips.Interfaces;
-using RoadMate.Application.Trips.Validators;
 using RoadMate.Application.Weather.Implements;
 using RoadMate.Application.Weather.Interfaces;
 using RoadMate.Domain.Alerts;
@@ -53,18 +39,8 @@ public static class DependencyInjection
     s.AddSingleton<IAlertPolicyResolver, AlertPolicyResolver>();
     s.AddSingleton(sp => sp.GetRequiredService<IOptions<AlertOptions>>().Value.Timing);
 
-    // Request validators
-    s.AddSingleton<IRequestValidator<UpdateProfileRequest>, UpdateProfileRequestValidator>();
-    s.AddSingleton<IRequestValidator<ContactRequest>, ContactRequestValidator>();
-    s.AddSingleton<IRequestValidator<CreateAlertRequest>, CreateAlertRequestValidator>();
-    s.AddSingleton<IRequestValidator<TripUpsertRequest>, TripUpsertRequestValidator>();
-    s.AddSingleton<IRequestValidator<RestRequest>, RestRequestValidator>();
-    s.AddSingleton<IRequestValidator<AddPointsRequest>, AddPointsRequestValidator>();
-    s.AddSingleton<IRequestValidator<HeartbeatRequest>, HeartbeatRequestValidator>();
-    s.AddSingleton<IRequestValidator<MemoryRequest>, MemoryRequestValidator>();
-    s.AddSingleton<IRequestValidator<CreateGroupRequest>, CreateGroupRequestValidator>();
-    s.AddSingleton<IRequestValidator<JoinGroupRequest>, JoinGroupRequestValidator>();
-    s.AddSingleton<IRequestValidator<SendGroupMessageRequest>, SendGroupMessageRequestValidator>();
+    // FluentValidation request validators (scoped so validators may depend on scoped abstractions)
+    s.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly, ServiceLifetime.Scoped);
 
     // Services (scoped: one DbContext per request)
     s.AddScoped<IAuthService, AuthService>();

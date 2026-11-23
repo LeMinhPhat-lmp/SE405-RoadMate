@@ -53,4 +53,11 @@ public static class Make
     Assert.True(r.IsFailure, $"expected failure {code} but succeeded");
     Assert.Equal(code, r.Error.Code);
   }
+
+  public static void ShouldFailWith(this FluentValidation.Results.ValidationResult r, string code, string? propertyName = null)
+  {
+    Assert.False(r.IsValid, $"expected validation failure {code} but succeeded");
+    Assert.Equal(code, r.Errors[0].ErrorCode);
+    if (propertyName is not null) Assert.Equal(propertyName, r.Errors[0].PropertyName);
+  }
 }
