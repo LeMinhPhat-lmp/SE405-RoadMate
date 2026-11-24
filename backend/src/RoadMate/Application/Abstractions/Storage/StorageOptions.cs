@@ -11,6 +11,6 @@ public class StorageOptions
   public long MaxVideoBytes { get; set; } = 25 * 1024 * 1024;
   /// <summary>true: khi tạo kỷ niệm, server kiểm tra object đã thực sự được upload (tồn tại, đúng loại, không vượt dung lượng).</summary>
   public bool VerifyOnCreate { get; set; } = true;
-  /// <summary>true: ký kèm header x-goog-content-length-range để GCS tự từ chối file vượt dung lượng khai báo.</summary>
-  public bool EnforceSizeLimit { get; set; } = true;
+  /// <summary>true: ký kèm header x-goog-content-length-range để GCS tự từ chối file vượt dung lượng khai báo (mặc định false để khớp chuẩn ký tối giản chỉ kèm Content-Type; server vẫn kiểm tra kích thước khi VerifyOnCreate=true).</summary>
+  public bool EnforceSizeLimit { get; set; } = false;
 }
