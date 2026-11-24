@@ -27,7 +27,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser c
   public DbSet<GroupMessage> GroupMessages => Set<GroupMessage>();
 
   protected override void OnModelCreating(ModelBuilder b) =>
-    b.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly).ApplySoftDeleteQueryFilters();
+    b.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly)
+      .ApplyClientGeneratedIds()
+      .ApplySoftDeleteQueryFilters();
 
   /// <summary>Enums are stored as their legacy wire strings (text columns), never as ints.</summary>
   protected override void ConfigureConventions(ModelConfigurationBuilder c)

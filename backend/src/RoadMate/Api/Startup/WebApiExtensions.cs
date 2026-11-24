@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
 using System.Text;
+using System.Text.Encodings.Web;
 using RoadMate.Api.Auth;
 using RoadMate.Api.ErrorHandling;
 using RoadMate.Api.Http;
@@ -16,7 +17,8 @@ public static class WebApiExtensions
 
   public static IServiceCollection AddWebApi(this IServiceCollection services, IConfiguration cfg, IHostEnvironment env)
   {
-    services.AddControllers(o => { o.Filters.Add<SyncedUserFilter>(); o.Filters.Add<ValidationFilter>(); });
+    services.AddControllers(o => { o.Filters.Add<SyncedUserFilter>(); o.Filters.Add<ValidationFilter>(); })
+      .AddJsonOptions(o => o.JsonSerializerOptions.Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping);
     services.AddExceptionHandler<GlobalExceptionHandler>();
     services.AddProblemDetails(o => o.CustomizeProblemDetails = ctx =>
     {

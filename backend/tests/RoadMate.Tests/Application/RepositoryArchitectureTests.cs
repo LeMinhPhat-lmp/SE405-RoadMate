@@ -104,6 +104,20 @@ public class RepositoryArchitectureTests
   }
 
   [Fact]
+  public void Child_entity_added_to_tracked_aggregate_is_tracked_as_Added()
+  {
+    using var db = CreateContext();
+    var user = Make.User();
+    db.Users.Attach(user);
+    Assert.Equal(EntityState.Unchanged, db.Entry(user).State);
+
+    var added = user.AddContact("Mẹ", Make.Phone("0912345678"), "mẹ", null, null).ThrowIfFailed().Value;
+    db.ChangeTracker.DetectChanges();
+
+    Assert.Equal(EntityState.Added, db.Entry(added).State);
+  }
+
+  [Fact]
   public void Ef_model_has_soft_delete_filters_and_keyset_pagination_indexes()
   {
     using var db = CreateContext();
@@ -122,6 +136,10 @@ public class RepositoryArchitectureTests
     Assert.True(HasIndex(model.FindEntityType(typeof(Memory))!, nameof(Memory.TripId), nameof(Memory.TakenAt), nameof(Memory.Id)));
     Assert.True(HasIndex(model.FindEntityType(typeof(Alert))!, nameof(Alert.TripId), nameof(Alert.CreatedAt), nameof(Alert.Id)));
     Assert.True(HasIndex(model.FindEntityType(typeof(GroupMessage))!, nameof(GroupMessage.GroupId), nameof(GroupMessage.CreatedAt), nameof(GroupMessage.Id)));
+
+    // Client-generated Guid PKs must use ValueGenerated.Never so child entities added to tracked aggregates are tracked as Added (not Modified)
+    foreach (var et in model.GetEntityTypes().Where(t => typeof(Entity).IsAssignableFrom(t.ClrType)))
+      Assert.Equal(Microsoft.EntityFrameworkCore.Metadata.ValueGenerated.Never, et.FindProperty(nameof(Entity.Id))!.ValueGenerated);
 
     // Verify Npgsql translates keyset predicate (including Guid.CompareTo tie-breaker) without OFFSET
     var ownerId = Guid.NewGuid();

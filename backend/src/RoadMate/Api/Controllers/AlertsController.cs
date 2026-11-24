@@ -1,11 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
 using RoadMate.Application.Alerts.Interfaces;
-using RoadMate.Application.Alerts.Implements;
 using RoadMate.Application.Alerts.DTOs.Requests;
 
 namespace RoadMate.Api.Controllers;
 
-public class AlertsController(IAlertService svc, AlertLifecycleService lifecycle) : ApiControllerBase
+public class AlertsController(IAlertService svc, IAlertLifecycleService lifecycle) : ApiControllerBase
 {
   /// <remarks> 
   /// ⚠ CẦN CẤU HÌNH để chạy đúng mục đích: Sms:Provider=esms (+ ApiKey/SecretKey/Brandname) để gửi SMS thật; Firebase:CredentialPath cho push.
