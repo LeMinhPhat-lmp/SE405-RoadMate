@@ -1,8 +1,12 @@
+using RoadMate.Application.Abstractions.Maps;
 using System.Text.Json;
+using RoadMate.Domain.Common;
+using RoadMate.Application.Common;
+using Microsoft.Extensions.Options;
 
 namespace RoadMate.Infrastructure.Maps;
 
-public class GoongClient(HttpClient http, IOptions<GoongOptions> options, ILogger<GoongClient> log) : IGoongClient
+public class GoongClient(HttpClient http, IOptions<GoongOptions> options, ILogger<GoongClient> log) : IMapGateway
 {
   private const int MaxAttempts = 2;   // 1 lần thử lại cho lỗi mạng/5xx (GET idempotent)
 
@@ -11,7 +15,7 @@ public class GoongClient(HttpClient http, IOptions<GoongOptions> options, ILogge
   public static readonly Error QuotaExceeded = new("MAP_QUOTA_EXCEEDED",
     "Đã vượt hạn mức/tần suất gọi Goong, hãy thử lại sau.", ErrorType.TooManyRequests);
 
-  public async Task<Result<JsonElement>> GetAsync(string path, GoongQuery query, CancellationToken ct)
+  public async Task<Result<JsonElement>> GetAsync(string path, MapQuery query, CancellationToken ct)
   {
     var o = options.Value;
     if (string.IsNullOrWhiteSpace(o.ApiKey))

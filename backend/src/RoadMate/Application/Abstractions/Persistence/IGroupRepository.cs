@@ -1,0 +1,13 @@
+using RoadMate.Domain.Groups;
+
+namespace RoadMate.Application.Abstractions.Persistence;
+
+public interface IGroupRepository : IGenericRepository<Group>, ISoftDeleteRepository<Group>
+{
+  /// <summary>Tracked, with members.</summary>
+  Task<Group?> GetWithMembersAsync(Guid id, CancellationToken ct = default);
+  Task<Group?> GetByCodeAsync(string code, CancellationToken ct = default);
+  Task<bool> CodeExistsAsync(string code, CancellationToken ct = default);
+  /// <summary>Tracked groups in status Riding with members (straggler monitor).</summary>
+  Task<IReadOnlyList<Group>> ListRidingAsync(CancellationToken ct = default);
+}
