@@ -42,6 +42,7 @@ part 'features/trips/place_search_page.dart';
 part 'features/trips/trip_safety_page.dart';
 part 'features/home/home_page.dart';
 part 'features/trips/trips_page.dart';
+part 'features/navigation/navigation_page.dart';
 part 'features/journal/journal_page.dart';
 part 'features/contacts/contacts_page.dart';
 part 'features/profile/profile_page.dart';
