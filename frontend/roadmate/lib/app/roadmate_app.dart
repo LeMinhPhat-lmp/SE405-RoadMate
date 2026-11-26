@@ -1,8 +1,30 @@
 part of '../main.dart';
 
+/// Lets safety prompts (crash countdown, idle check) open from any screen.
+final roadMateNavigatorKey = GlobalKey<NavigatorState>();
+
 class RoadMateApp extends StatefulWidget {
   const RoadMateApp({required this.api, super.key});
   final RoadMateApi api;
+
+  static final ValueNotifier<ThemeMode> themeMode = ValueNotifier(
+    ThemeMode.system,
+  );
+
+  static Future<void> loadThemeMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    themeMode.value = switch (prefs.getString('theme_mode')) {
+      'dark' => ThemeMode.dark,
+      'light' => ThemeMode.light,
+      _ => ThemeMode.system,
+    };
+  }
+
+  static Future<void> setThemeMode(ThemeMode mode) async {
+    themeMode.value = mode;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('theme_mode', mode.name);
+  }
 
   @override
   State<RoadMateApp> createState() => _RoadMateAppState();
@@ -16,20 +38,22 @@ class _RoadMateAppState extends State<RoadMateApp> {
   }
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
-    title: 'RoadMate',
-    debugShowCheckedModeBanner: false,
-    theme: ThemeData(
-      colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xff0f766e)),
-      useMaterial3: true,
-      scaffoldBackgroundColor: const Color(0xfff4f7f6),
-    ),
-    home: ValueListenableBuilder<bool>(
-      valueListenable: FirebaseBridge.availability,
-      builder: (context, firebaseAvailable, _) {
-        if (!firebaseAvailable) return Shell(api: widget.api);
-        return FirebaseAuthGate(api: widget.api);
-      },
+  Widget build(BuildContext context) => ValueListenableBuilder<ThemeMode>(
+    valueListenable: RoadMateApp.themeMode,
+    builder: (context, mode, _) => MaterialApp(
+      title: 'RoadMate',
+      debugShowCheckedModeBanner: false,
+      navigatorKey: roadMateNavigatorKey,
+      theme: RoadMateTheme.light(),
+      darkTheme: RoadMateTheme.dark(),
+      themeMode: mode,
+      home: ValueListenableBuilder<bool>(
+        valueListenable: FirebaseBridge.availability,
+        builder: (context, firebaseAvailable, _) {
+          if (!firebaseAvailable) return Shell(api: widget.api);
+          return FirebaseAuthGate(api: widget.api);
+        },
+      ),
     ),
   );
 }
@@ -88,7 +112,9 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
         try {
           token = await FirebaseBridge.requestPushToken();
         } on Object catch (pushError) {
-          debugPrint('RoadMate could not register push notifications: $pushError');
+          debugPrint(
+            'RoadMate could not register push notifications: $pushError',
+          );
         }
       }
       await widget.api.syncUser(
@@ -134,17 +160,62 @@ class _ShellState extends State<Shell> {
   int index = 0;
   String? activeTripId;
   late final TripRuntime runtime = TripRuntime(widget.api);
+  StreamSubscription<SafetyEvent>? _safetyEvents;
 
   @override
   void initState() {
     super.initState();
-    unawaited(runtime.restore());
+    _safetyEvents = runtime.events.listen(_onSafetyEvent);
+    unawaited(_restore());
+  }
+
+  Future<void> _restore() async {
+    await runtime.restore();
+    // An emergency alert survived an app restart: show it again.
+    if (runtime.alerts.active) {
+      unawaited(
+        roadMateNavigatorKey.currentState?.push(AlertActivePage.route(runtime)),
+      );
+    }
+  }
+
+  void _onSafetyEvent(SafetyEvent event) {
+    final navigator = roadMateNavigatorKey.currentState;
+    if (navigator == null) return;
+    switch (event.type) {
+      case SafetyEventType.crash:
+        unawaited(navigator.push(CrashAlertPage.route(runtime, event.crash!)));
+      case SafetyEventType.idle:
+        unawaited(
+          navigator.push(
+            IdleCheckPage.route(
+              runtime,
+              event.stoppedFor ??
+                  Duration(minutes: runtime.idleDetector.idleMinutes),
+            ),
+          ),
+        );
+      case SafetyEventType.restEnded:
+        final context = navigator.context;
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          const SnackBar(
+            content: Text('Hết giờ nghỉ chân – tiếp tục hành trình nhé!'),
+          ),
+        );
+    }
   }
 
   @override
   void dispose() {
+    unawaited(_safetyEvents?.cancel());
     runtime.dispose();
     super.dispose();
+  }
+
+  void _openNavigation() {
+    unawaited(
+      Navigator.of(context).push(NavigationPage.route(widget.api, runtime)),
+    );
   }
 
   @override
@@ -157,15 +228,18 @@ class _ShellState extends State<Shell> {
     final pages = [
       HomePage(
         api: widget.api,
+        runtime: runtime,
         onTripCreated: (id) => setState(() => activeTripId = id),
+        onOpenTab: (value) => setState(() => index = value),
       ),
       TripsPage(api: widget.api, runtime: runtime),
       JournalPage(
         api: widget.api,
+        runtime: runtime,
         tripId: runtime.activeTripId ?? activeTripId,
       ),
       ContactsPage(api: widget.api),
-      ProfilePage(api: widget.api),
+      ProfilePage(api: widget.api, runtime: runtime),
     ];
     return Scaffold(
       body: SafeArea(
@@ -174,14 +248,32 @@ class _ShellState extends State<Shell> {
             if (widget.startupError != null)
               MaterialBanner(
                 content: Text(
-                  'Account sync unavailable: ${widget.startupError}',
+                  'Chưa đồng bộ được tài khoản: ${widget.startupError}',
                 ),
                 actions: [
                   TextButton(
                     onPressed: widget.onRetryStartup,
-                    child: const Text('Retry'),
+                    child: const Text('Thử lại'),
                   ),
                 ],
+              ),
+            if (runtime.alerts.active)
+              _ActiveBanner(
+                color: RoadMateColors.danger,
+                icon: Icons.emergency,
+                text: 'Cảnh báo khẩn cấp đang hoạt động',
+                onTap: () => unawaited(
+                  Navigator.of(context).push(AlertActivePage.route(runtime)),
+                ),
+              )
+            else if (runtime.isTracking)
+              _ActiveBanner(
+                color: RoadMateColors.primaryDeep,
+                icon: Icons.navigation,
+                text: runtime.resting
+                    ? 'Đang nghỉ chân · chạm để mở dẫn đường'
+                    : 'Chuyến đi đang chạy · chạm để mở dẫn đường',
+                onTap: _openNavigation,
               ),
             Expanded(
               child: IndexedStack(index: index, children: pages),
@@ -196,30 +288,70 @@ class _ShellState extends State<Shell> {
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home),
-            label: 'Home',
+            label: 'Trang chủ',
           ),
           NavigationDestination(
             icon: Icon(Icons.route_outlined),
             selectedIcon: Icon(Icons.route),
-            label: 'Trips',
+            label: 'Chuyến đi',
           ),
           NavigationDestination(
             icon: Icon(Icons.book_outlined),
             selectedIcon: Icon(Icons.book),
-            label: 'Journal',
+            label: 'Nhật ký',
           ),
           NavigationDestination(
             icon: Icon(Icons.people_outline),
             selectedIcon: Icon(Icons.people),
-            label: 'Contacts',
+            label: 'Liên hệ',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),
             selectedIcon: Icon(Icons.person),
-            label: 'Profile',
+            label: 'Tôi',
           ),
         ],
       ),
     );
   }
+}
+
+class _ActiveBanner extends StatelessWidget {
+  const _ActiveBanner({
+    required this.color,
+    required this.icon,
+    required this.text,
+    required this.onTap,
+  });
+  final Color color;
+  final IconData icon;
+  final String text;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: color,
+    child: InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.white, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                text,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: Colors.white),
+          ],
+        ),
+      ),
+    ),
+  );
 }

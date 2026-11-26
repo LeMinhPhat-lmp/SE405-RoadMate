@@ -62,5 +62,6 @@ part 'widgets/common_widgets.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   unawaited(FirebaseBridge.initialize());
+  unawaited(RoadMateApp.loadThemeMode());
   runApp(RoadMateApp(api: RoadMateApi(http.Client())));
 }
