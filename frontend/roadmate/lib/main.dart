@@ -30,6 +30,7 @@ part 'services/firebase_bridge.dart';
 part 'services/roadmate_api.dart';
 part 'services/geo_utils.dart';
 part 'services/trip_tracker.dart';
+part 'services/crash_detection_service.dart';
 part 'services/trip_runtime.dart';
 part 'app/roadmate_theme.dart';
 part 'app/roadmate_app.dart';
