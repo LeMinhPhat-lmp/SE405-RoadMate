@@ -1,11 +1,27 @@
 part of '../main.dart';
 
 class TripTracker {
-  TripTracker({required this.api, required this.tripId, required this.onError});
+  TripTracker({
+    required this.api,
+    required this.tripId,
+    required this.onError,
+    this.onPosition,
+  });
 
   final RoadMateApi api;
   final String tripId;
   final ValueChanged<Object> onError;
+  final ValueChanged<Position>? onPosition;
+  final Battery _battery = Battery();
+  int? batteryLevel;
+  DateTime? _batteryReadAt;
+
+  /// Debug Simulator: pretend there is no network until this time. Points
+  /// keep being stored locally and sync once it passes.
+  DateTime? offlineUntil;
+  bool get simulatedOffline =>
+      offlineUntil != null && DateTime.now().isBefore(offlineUntil!);
+  int get pendingCount => _pending.length;
   StreamSubscription<Position>? _subscription;
   Timer? _heartbeatTimer;
   final List<Map<String, dynamic>> _pending = [];
@@ -40,11 +56,8 @@ class TripTracker {
     }
     running = true;
     _subscription = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 25,
-      ),
-    ).listen(_record);
+      locationSettings: _locationSettings(),
+    ).listen(_record, onError: onError);
     _heartbeatTimer = Timer.periodic(
       const Duration(minutes: 1),
       (_) => flush(),
@@ -54,9 +67,58 @@ class TripTracker {
     }
   }
 
+  /// Android keeps a foreground service (persistent notification) so GPS is
+  /// still recorded while the screen is locked.
+  static LocationSettings _locationSettings() {
+    if (Platform.isAndroid) {
+      return AndroidSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 5,
+        intervalDuration: const Duration(seconds: 3),
+        foregroundNotificationConfig: const ForegroundNotificationConfig(
+          notificationTitle: 'RoadMate đang bảo vệ chuyến đi',
+          notificationText: 'Đang ghi lộ trình và theo dõi an toàn',
+          notificationChannelName: 'Theo dõi chuyến đi',
+          enableWakeLock: true,
+          setOngoing: true,
+        ),
+      );
+    }
+    if (Platform.isIOS) {
+      return AppleSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 5,
+        activityType: ActivityType.automotiveNavigation,
+        pauseLocationUpdatesAutomatically: false,
+        allowBackgroundLocationUpdates: true,
+        showBackgroundLocationIndicator: true,
+      );
+    }
+    return const LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 5,
+    );
+  }
+
+  Future<int?> readBattery() async {
+    final readAt = _batteryReadAt;
+    if (readAt != null &&
+        DateTime.now().difference(readAt) < const Duration(minutes: 1)) {
+      return batteryLevel;
+    }
+    try {
+      batteryLevel = await _battery.batteryLevel;
+      _batteryReadAt = DateTime.now();
+    } on Object {
+      // Battery level is optional.
+    }
+    return batteryLevel;
+  }
+
   Future<void> _record(Position position) async {
     latest = position;
-    final battery = await Battery().batteryLevel;
+    onPosition?.call(position);
+    final battery = await readBattery();
     _pending.add({
       'lat': position.latitude,
       'lng': position.longitude,
@@ -71,12 +133,22 @@ class TripTracker {
 
   Future<void> flush() async {
     if (_pending.isEmpty || _flushInProgress) return;
+    if (simulatedOffline) return;
     _flushInProgress = true;
-    final network = (await Connectivity().checkConnectivity()).isNotEmpty;
+    final connectivity = await Connectivity().checkConnectivity();
+    final network = !connectivity.contains(ConnectivityResult.none);
+    if (!network) {
+      _flushInProgress = false;
+      return;
+    }
     try {
-      await api.addPoints(tripId, List<Map<String, dynamic>>.from(_pending));
+      final batch = List<Map<String, dynamic>>.from(_pending);
+      await api.addPoints(tripId, batch);
+      // Points recorded while uploading stay queued for the next flush.
+      _pending.removeRange(0, math.min(batch.length, _pending.length));
+      await _persistPending();
       if (latest != null) {
-        final battery = await Battery().batteryLevel;
+        final battery = await readBattery();
         await api.heartbeat(
           tripId,
           lat: latest!.latitude,
@@ -86,8 +158,6 @@ class TripTracker {
           networkOk: network,
         );
       }
-      _pending.clear();
-      await _persistPending();
     } catch (exception) {
       onError(exception);
     } finally {
