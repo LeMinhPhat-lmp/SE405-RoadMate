@@ -48,6 +48,8 @@ part 'features/safety/sos_page.dart';
 part 'features/safety/idle_check_page.dart';
 part 'features/safety/rest_mode_page.dart';
 part 'features/journal/journal_page.dart';
+part 'features/journal/journal_detail_page.dart';
+part 'features/journal/trip_summary_page.dart';
 part 'features/journal/memory_capture.dart';
 part 'features/contacts/contacts_page.dart';
 part 'features/profile/profile_page.dart';
