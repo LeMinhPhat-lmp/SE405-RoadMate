@@ -80,6 +80,65 @@ void main() {
     });
   });
 
+  group('IdleDetector', () {
+    test('asks once after the idle threshold', () {
+      final detector = IdleDetector(idleMinutes: 15);
+      detector.update(0.5, t0);
+      expect(detector.check(t0.add(const Duration(minutes: 14))), isFalse);
+      expect(detector.check(t0.add(const Duration(minutes: 15))), isTrue);
+      expect(detector.check(t0.add(const Duration(minutes: 16))), isFalse);
+    });
+
+    test('moving resets the timer', () {
+      final detector = IdleDetector(idleMinutes: 15);
+      detector.update(0, t0);
+      detector.update(30, t0.add(const Duration(minutes: 10)));
+      detector.update(0, t0.add(const Duration(minutes: 11)));
+      expect(detector.check(t0.add(const Duration(minutes: 20))), isFalse);
+      expect(detector.check(t0.add(const Duration(minutes: 26))), isTrue);
+    });
+
+    test('acknowledge restarts the countdown', () {
+      final detector = IdleDetector(idleMinutes: 15);
+      detector.update(0, t0);
+      final prompt = t0.add(const Duration(minutes: 15));
+      expect(detector.check(prompt), isTrue);
+      detector.acknowledge(prompt);
+      expect(detector.check(prompt.add(const Duration(minutes: 14))), isFalse);
+      expect(detector.check(prompt.add(const Duration(minutes: 15))), isTrue);
+    });
+
+    test('rest mode suppresses the prompt until it ends', () {
+      final detector = IdleDetector(idleMinutes: 15);
+      detector.update(0, t0);
+      detector.startRest(t0, const Duration(minutes: 30));
+      expect(detector.check(t0.add(const Duration(minutes: 20))), isFalse);
+      expect(detector.isResting(t0.add(const Duration(minutes: 29))), isTrue);
+      final end = t0.add(const Duration(minutes: 30));
+      detector.endRest(end);
+      expect(detector.check(end.add(const Duration(minutes: 10))), isFalse);
+      expect(detector.check(end.add(const Duration(minutes: 15))), isTrue);
+    });
+
+    test('planned stops allow a longer stay', () {
+      const cafe = LatLng(11.5481, 107.8039);
+      final detector = IdleDetector(
+        idleMinutes: 15,
+        plannedStops: const [PlannedStop(point: cafe, stayMinutes: 30)],
+      );
+      detector.update(0, t0, point: const LatLng(11.5482, 107.8040));
+      expect(detector.check(t0.add(const Duration(minutes: 20))), isFalse);
+      expect(detector.check(t0.add(const Duration(minutes: 45))), isTrue);
+    });
+
+    test('simulateElapsed triggers immediately (Debug Simulator)', () {
+      final detector = IdleDetector(idleMinutes: 15);
+      detector.update(0, t0);
+      detector.simulateElapsed(t0);
+      expect(detector.check(t0), isTrue);
+    });
+  });
+
   group('geo utils', () {
     test('decodes a Google encoded polyline', () {
       final points = decodePolyline('_p~iF~ps|U_ulLnnqC_mqNvxq`@');
