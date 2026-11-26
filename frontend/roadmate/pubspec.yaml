@@ -22,6 +22,13 @@ dependencies:
   url_launcher: ^6.3.2
   http: ^1.5.0
   shared_preferences: ^2.5.3
+  flutter_map: ^8.3.2
+  latlong2: ^0.10.1
+  sensors_plus: ^7.1.1
+  flutter_tts: ^4.2.5
+  vibration: ^3.2.1
+  flutter_ringtone_player: ^4.0.0+4
+  wakelock_plus: ^1.5.2
 
 dev_dependencies:
   flutter_test:
