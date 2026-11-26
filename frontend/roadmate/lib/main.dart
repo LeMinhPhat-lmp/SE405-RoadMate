@@ -52,6 +52,7 @@ part 'features/journal/journal_detail_page.dart';
 part 'features/journal/trip_summary_page.dart';
 part 'features/journal/memory_capture.dart';
 part 'features/contacts/contacts_page.dart';
+part 'features/contacts/contact_form_page.dart';
 part 'features/profile/profile_page.dart';
 part 'widgets/common_widgets.dart';
 
