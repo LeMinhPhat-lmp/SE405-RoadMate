@@ -14,6 +14,7 @@ class _AuthPageState extends State<AuthPage> {
   final name = TextEditingController();
   bool registering = false;
   bool loading = false;
+  bool acceptedTerms = false;
   String? error;
 
   @override
@@ -27,14 +28,19 @@ class _AuthPageState extends State<AuthPage> {
   Future<void> submit() async {
     final emailValue = email.text.trim();
     final passwordValue = password.text;
-    if (emailValue.isEmpty || passwordValue.length < 6) {
+    final minLength = registering ? 8 : 6;
+    if (emailValue.isEmpty || passwordValue.length < minLength) {
       setState(
-        () => error = 'Enter an email and a password of at least 6 characters.',
+        () => error = 'Nhập email và mật khẩu ít nhất $minLength ký tự.',
       );
       return;
     }
     if (registering && name.text.trim().isEmpty) {
-      setState(() => error = 'Enter your name.');
+      setState(() => error = 'Nhập họ và tên của bạn.');
+      return;
+    }
+    if (registering && !acceptedTerms) {
+      setState(() => error = 'Bạn cần đồng ý với điều khoản sử dụng.');
       return;
     }
 
@@ -70,6 +76,26 @@ class _AuthPageState extends State<AuthPage> {
     }
   }
 
+  Future<void> resetPassword() async {
+    final emailValue = email.text.trim();
+    if (emailValue.isEmpty) {
+      setState(() => error = 'Nhập email để nhận link đặt lại mật khẩu.');
+      return;
+    }
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: emailValue);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Đã gửi link đặt lại mật khẩu tới $emailValue'),
+          ),
+        );
+      }
+    } on FirebaseAuthException catch (exception) {
+      if (mounted) setState(() => error = exception.message ?? exception.code);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     body: SafeArea(
@@ -81,57 +107,79 @@ class _AuthPageState extends State<AuthPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(Icons.shield_outlined, size: 64),
-                const SizedBox(height: 16),
-                Text(
-                  registering
-                      ? 'Create your RoadMate account'
-                      : 'Welcome to RoadMate',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: RoadMateColors.primary,
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: const Icon(Icons.navigation, color: Colors.white),
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 20),
+                Text(
+                  registering ? 'Tạo tài khoản' : 'Chào mừng trở lại 👋',
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 6),
                 Text(
                   registering
-                      ? 'Your account keeps trips and safety settings synced.'
-                      : 'Sign in to sync your trips with the RoadMate API.',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.black54),
+                      ? 'Chỉ mất 1 phút để sẵn sàng lên đường'
+                      : 'Đăng nhập để tiếp tục hành trình của bạn',
+                  style: const TextStyle(color: RoadMateColors.muted),
                 ),
                 const SizedBox(height: 28),
                 if (registering)
                   TextField(
                     controller: name,
                     textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      labelText: 'Name',
-                      border: OutlineInputBorder(),
-                    ),
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(labelText: 'Họ và tên'),
                   ),
                 if (registering) const SizedBox(height: 12),
                 TextField(
                   controller: email,
                   keyboardType: TextInputType.emailAddress,
                   textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: const InputDecoration(labelText: 'Email'),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: password,
                   obscureText: true,
                   onSubmitted: (_) => submit(),
-                  decoration: const InputDecoration(
-                    labelText: 'Password',
-                    helperText: 'At least 6 characters',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: 'Mật khẩu',
+                    helperText: registering ? 'Ít nhất 8 ký tự' : null,
                   ),
                 ),
+                if (!registering)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: loading ? null : resetPassword,
+                      child: const Text('Quên mật khẩu?'),
+                    ),
+                  ),
+                if (registering)
+                  CheckboxListTile(
+                    value: acceptedTerms,
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    onChanged: (value) =>
+                        setState(() => acceptedTerms = value ?? false),
+                    title: const Text(
+                      'Tôi đồng ý với Điều khoản sử dụng và hiểu rằng RoadMate '
+                      'không thay thế dịch vụ cứu hộ chuyên nghiệp.',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                  ),
                 if (error != null) ...[
                   const SizedBox(height: 12),
                   ErrorBanner(error!),
@@ -141,10 +189,10 @@ class _AuthPageState extends State<AuthPage> {
                   onPressed: loading ? null : submit,
                   child: Text(
                     loading
-                        ? 'Please wait...'
+                        ? 'Vui lòng chờ...'
                         : registering
-                        ? 'Create account'
-                        : 'Sign in',
+                        ? 'Tạo tài khoản'
+                        : 'Đăng nhập',
                   ),
                 ),
                 TextButton(
@@ -156,8 +204,8 @@ class _AuthPageState extends State<AuthPage> {
                         }),
                   child: Text(
                     registering
-                        ? 'Already have an account? Sign in'
-                        : 'New to RoadMate? Create an account',
+                        ? 'Đã có tài khoản? Đăng nhập'
+                        : 'Chưa có tài khoản? Đăng ký',
                   ),
                 ),
               ],

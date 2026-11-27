@@ -2,6 +2,20 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>RoadMate dùng vị trí để dẫn đường và ghi lộ trình chuyến đi.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>RoadMate ghi lộ trình và gửi vị trí khẩn cấp cả khi khoá màn hình.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>RoadMate chụp ảnh kỷ niệm gắn vị trí cho nhật ký.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>RoadMate lưu ảnh kỷ niệm vào nhật ký chuyến đi.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>RoadMate dùng cảm biến chuyển động để phát hiện va chạm/té ngã.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>

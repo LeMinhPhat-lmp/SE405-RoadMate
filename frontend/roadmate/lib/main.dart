@@ -1,38 +1,67 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:latlong2/latlong.dart';
+import 'package:sensors_plus/sensors_plus.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:vibration/vibration.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 part 'services/firebase_bridge.dart';
 part 'services/roadmate_api.dart';
+part 'services/geo_utils.dart';
 part 'services/trip_tracker.dart';
+part 'services/crash_detection_service.dart';
+part 'services/idle_detection_service.dart';
+part 'services/sos_service.dart';
 part 'services/trip_runtime.dart';
+part 'app/roadmate_theme.dart';
 part 'app/roadmate_app.dart';
 part 'features/auth/auth_page.dart';
 part 'features/trips/trip_planner_page.dart';
+part 'features/trips/place_search_page.dart';
+part 'features/trips/trip_safety_page.dart';
 part 'features/home/home_page.dart';
 part 'features/trips/trips_page.dart';
+part 'features/navigation/navigation_page.dart';
+part 'features/safety/crash_alert_page.dart';
+part 'features/safety/alert_active_page.dart';
+part 'features/safety/sos_page.dart';
+part 'features/safety/idle_check_page.dart';
+part 'features/safety/rest_mode_page.dart';
+part 'features/safety/debug_simulator_page.dart';
 part 'features/journal/journal_page.dart';
+part 'features/journal/journal_detail_page.dart';
+part 'features/journal/trip_summary_page.dart';
+part 'features/journal/memory_capture.dart';
 part 'features/contacts/contacts_page.dart';
+part 'features/contacts/contact_form_page.dart';
 part 'features/profile/profile_page.dart';
+part 'features/profile/medical_info_page.dart';
+part 'features/profile/settings_page.dart';
 part 'widgets/common_widgets.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   unawaited(FirebaseBridge.initialize());
+  unawaited(RoadMateApp.loadThemeMode());
   runApp(RoadMateApp(api: RoadMateApi(http.Client())));
 }

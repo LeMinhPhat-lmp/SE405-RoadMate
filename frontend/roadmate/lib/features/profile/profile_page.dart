@@ -1,308 +1,204 @@
 part of '../../main.dart';
 
+/// RM/31 – profile header with the rescue info, safety shortcuts and app
+/// settings.
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({required this.api, super.key});
+  const ProfilePage({required this.api, this.runtime, super.key});
   final RoadMateApi api;
+  final TripRuntime? runtime;
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  late Future<Map<String, dynamic>> profile;
-  Timer? sosTimer;
-  double sosProgress = 0;
-  bool sendingSos = false;
+  late Future<(Map<String, dynamic>, List<Map<String, dynamic>>)> data =
+      _load();
 
-  @override
-  void initState() {
-    super.initState();
-    profile = widget.api.getMe();
+  Future<(Map<String, dynamic>, List<Map<String, dynamic>>)> _load() async {
+    final results = await Future.wait([
+      widget.api.getMe(),
+      widget.api.getContacts(),
+    ]);
+    return (
+      results[0] as Map<String, dynamic>,
+      results[1] as List<Map<String, dynamic>>,
+    );
+  }
+
+  void reload() => setState(() => data = _load());
+
+  Future<void> _open(Widget page) async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+    reload();
   }
 
   @override
-  Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.all(20),
-    children: [
-      const Text(
-        'Profile',
-        style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-      ),
-      const SizedBox(height: 16),
-      FutureBuilder<Map<String, dynamic>>(
-        future: profile,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const CircularProgressIndicator();
-          }
-          if (snapshot.hasError) return ErrorBanner(snapshot.error.toString());
-          final value = snapshot.data ?? {};
-          return Card(
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    value['name'] as String? ?? 'RoadMate rider',
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
+  Widget build(BuildContext context) => RefreshIndicator(
+    onRefresh: () async => reload(),
+    child: FutureBuilder<(Map<String, dynamic>, List<Map<String, dynamic>>)>(
+      future: data,
+      builder: (context, snapshot) {
+        final me = snapshot.data?.$1 ?? const <String, dynamic>{};
+        final contacts = snapshot.data?.$2 ?? const <Map<String, dynamic>>[];
+        return ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            if (snapshot.connectionState == ConnectionState.waiting)
+              const LinearProgressIndicator(),
+            if (snapshot.hasError) ErrorBanner(snapshot.error.toString()),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        InitialAvatar(me['name'] as String?, radius: 32),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                me['name'] as String? ?? 'RoadMate rider',
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              Text(
+                                me['email'] as String? ??
+                                    'Tài khoản phát triển',
+                                style: const TextStyle(
+                                  color: RoadMateColors.muted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Sửa hồ sơ',
+                          icon: const Icon(Icons.edit_outlined),
+                          onPressed: snapshot.hasData
+                              ? () => _open(
+                                  MedicalInfoPage(api: widget.api, me: me),
+                                )
+                              : null,
+                        ),
+                      ],
                     ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: MetricTile(
+                            value: me['bloodType'] as String? ?? '--',
+                            label: 'Nhóm máu',
+                          ),
+                        ),
+                        Expanded(
+                          child: MetricTile(
+                            value: me['plateNumber'] as String? ?? '--',
+                            label: 'Biển số',
+                          ),
+                        ),
+                        Expanded(
+                          child: MetricTile(
+                            value: me['vehicleType'] as String? ?? '--',
+                            label: 'Xe',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SectionLabel('An toàn'),
+            Card(
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.contact_phone_outlined),
+                    title: const Text('Liên hệ khẩn cấp'),
+                    subtitle: Text(
+                      '${contacts.length}/${ContactsPage.maxContacts} người'
+                      '${contacts.isEmpty ? '' : ' · ${contacts.map((c) => c['name']).join(', ')}'}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () =>
+                        _open(ContactsPage(api: widget.api, showBack: true)),
                   ),
-                  Text(value['email'] as String? ?? 'Development account'),
-                  const Divider(height: 28),
-                  Text('Vehicle: ${value['vehicleType'] ?? 'Not set'}'),
-                  Text('Plate: ${value['plateNumber'] ?? 'Not set'}'),
-                  Text(
-                    'Crash sensitivity: ${value['crashSensitivity'] ?? 'normal'}',
+                  ListTile(
+                    leading: const Icon(Icons.medical_information_outlined),
+                    title: const Text('Thông tin y tế & xe'),
+                    subtitle: const Text('Nhóm máu, dị ứng, biển số'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: snapshot.hasData
+                        ? () => _open(MedicalInfoPage(api: widget.api, me: me))
+                        : null,
                   ),
+                  ListTile(
+                    leading: const Icon(Icons.tune),
+                    title: const Text('Ngưỡng cảnh báo & cài đặt'),
+                    subtitle: Text(
+                      'Dừng ${me['idleMinutes'] ?? 15}p · độ nhạy '
+                      '${crashSensitivityLabel(me['crashSensitivity'] as String?)}',
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: snapshot.hasData
+                        ? () => _open(
+                            SettingsPage(
+                              api: widget.api,
+                              runtime: widget.runtime,
+                              me: me,
+                            ),
+                          )
+                        : null,
+                  ),
+                  if (widget.runtime != null)
+                    ListTile(
+                      leading: const Icon(Icons.bug_report_outlined),
+                      title: const Text('Debug Simulator'),
+                      subtitle: const Text(
+                        'Giả lập va chạm, dừng lâu… để demo',
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => _open(
+                        DebugSimulatorPage(
+                          api: widget.api,
+                          runtime: widget.runtime!,
+                        ),
+                      ),
+                    ),
+                  if (widget.runtime != null)
+                    ListTile(
+                      leading: const Icon(
+                        Icons.emergency_outlined,
+                        color: RoadMateColors.danger,
+                      ),
+                      title: const Text('SOS khẩn cấp'),
+                      subtitle: const Text('Giữ 3 giây · gọi 115 / 113 / 112'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () =>
+                          Navigator.of(context)
+                              .push(SosPage.route(widget.runtime!)),
+                    ),
                 ],
               ),
             ),
-          );
-        },
-      ),
-      const SizedBox(height: 18),
-      FilledButton.icon(
-        onPressed: () => showDialog<void>(
-          context: context,
-          builder: (_) => CrashDialog(api: widget.api),
-        ),
-        icon: const Icon(Icons.warning_amber_rounded),
-        label: const Text('Demo crash alert'),
-      ),
-      OutlinedButton.icon(
-        onPressed: () => showDialog<void>(
-          context: context,
-          builder: (_) => SosDialog(api: widget.api),
-        ),
-        icon: const Icon(Icons.emergency),
-        label: const Text('Demo SOS'),
-      ),
-      const SizedBox(height: 8),
-      GestureDetector(
-        onLongPressStart: (_) => beginSosHold(),
-        onLongPressEnd: (_) => cancelSosHold(),
-        child: Card(
-          color: Colors.red.shade50,
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              children: [
-                LinearProgressIndicator(
-                  value: sosProgress == 0 ? null : sosProgress,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  sendingSos
-                      ? 'Sending SOS...'
-                      : 'Press and hold 3 seconds for real SOS',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ],
+            const SizedBox(height: 12),
+            const Text(
+              'RoadMate là sản phẩm học tập, không thay thế dịch vụ cứu hộ '
+              'chuyên nghiệp. Hãy chủ động gọi cấp cứu khi có sự cố nghiêm trọng.',
+              style: TextStyle(color: RoadMateColors.muted, fontSize: 12),
             ),
-          ),
-        ),
-      ),
-      if (FirebaseBridge.available)
-        TextButton.icon(
-          onPressed: () => FirebaseAuth.instance.signOut(),
-          icon: const Icon(Icons.logout),
-          label: const Text('Sign out'),
-        ),
-    ],
-  );
-
-  void beginSosHold() {
-    if (sendingSos) return;
-    sosProgress = 0;
-    const interval = Duration(milliseconds: 100);
-    var elapsed = 0;
-    sosTimer = Timer.periodic(interval, (_) {
-      elapsed += interval.inMilliseconds;
-      if (!mounted) return;
-      setState(() => sosProgress = elapsed / 3000);
-      if (elapsed >= 3000) {
-        sosTimer?.cancel();
-        sendSos();
-      }
-    });
-  }
-
-  void cancelSosHold() {
-    sosTimer?.cancel();
-    if (mounted && !sendingSos) setState(() => sosProgress = 0);
-  }
-
-  Future<void> sendSos() async {
-    setState(() => sendingSos = true);
-    try {
-      final trips = await widget.api.getTrips();
-      final active = trips.where((trip) => trip['status'] == 'active').toList();
-      if (active.isEmpty) throw Exception('Start an active trip first.');
-      await widget.api.createAlert(active.first['id'] as String, 'sos');
-      if (mounted) {
-        await showDialog<void>(
-          context: context,
-          builder: (_) => AlertDialog(
-            title: const Text('SOS sent'),
-            content: const Text(
-              'The RoadMate API received your SOS. Call emergency services if needed.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  unawaited(launchUrl(Uri.parse('tel:115')));
-                  if (context.mounted) Navigator.pop(context);
-                },
-                child: const Text('Call 115'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Done'),
-              ),
-            ],
-          ),
+          ],
         );
-      }
-    } catch (exception) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$exception')));
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          sendingSos = false;
-          sosProgress = 0;
-        });
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    sosTimer?.cancel();
-    super.dispose();
-  }
-}
-
-class CrashDialog extends StatefulWidget {
-  const CrashDialog({required this.api, super.key});
-  final RoadMateApi api;
-
-  @override
-  State<CrashDialog> createState() => _CrashDialogState();
-}
-
-class _CrashDialogState extends State<CrashDialog> {
-  int seconds = 30;
-  Timer? timer;
-
-  @override
-  void initState() {
-    super.initState();
-    timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (seconds <= 1) {
-        timer?.cancel();
-        if (mounted) setState(() => seconds = 0);
-      } else if (mounted) {
-        setState(() => seconds--);
-      }
-    });
-  }
-
-  Future<void> raiseAlert() async {
-    try {
-      final trips = await widget.api.getTrips();
-      final activeTrips = trips
-          .where((trip) => trip['status'] == 'active')
-          .toList();
-      if (activeTrips.isNotEmpty) {
-        await widget.api.createAlert(
-          activeTrips.first['id'] as String,
-          'crash',
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$e')));
-      }
-    }
-    if (mounted) Navigator.pop(context);
-  }
-
-  @override
-  void dispose() {
-    timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    icon: const Icon(Icons.warning, color: Colors.red, size: 44),
-    title: const Text('Are you okay?'),
-    content: Text(
-      seconds == 0
-          ? 'Alert escalation would start now.'
-          : 'Possible crash detected. $seconds seconds remaining.',
+      },
     ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('I am okay'),
-      ),
-      FilledButton(onPressed: raiseAlert, child: const Text('Need help')),
-    ],
-  );
-}
-
-class SosDialog extends StatelessWidget {
-  const SosDialog({required this.api, super.key});
-  final RoadMateApi api;
-
-  Future<void> raiseAlert(BuildContext context) async {
-    try {
-      final trips = await api.getTrips();
-      final activeTrips = trips
-          .where((trip) => trip['status'] == 'active')
-          .toList();
-      if (activeTrips.isEmpty) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Start a trip before sending SOS')),
-          );
-        }
-        return;
-      }
-      await api.createAlert(activeTrips.first['id'] as String, 'sos');
-      if (context.mounted) Navigator.pop(context);
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$e')));
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    icon: const Icon(Icons.emergency, color: Colors.red, size: 44),
-    title: const Text('SOS ready'),
-    content: const Text(
-      'This creates an SOS alert through the .NET API and escalates to configured contacts.',
-    ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
-      ),
-      FilledButton(
-        onPressed: () => raiseAlert(context),
-        child: const Text('Send SOS'),
-      ),
-    ],
   );
 }
